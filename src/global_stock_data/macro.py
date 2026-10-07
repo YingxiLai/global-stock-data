@@ -60,7 +60,7 @@ def spread_basis_points(long_percent: Any, short_percent: Any) -> float | None:
 def treasury(client: Client, year: int) -> dict[str, Any]:
     require(1990 <= year <= 2100, "Invalid Treasury year", "input")
     url = (
-        "https://home.treasury.gov/resource-center-data-chart-center/interest-rates/pages/xml?"
+        "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml?"
         + urlencode({"data": "daily_treasury_yield_curve", "field_tdr_date_value": year})
     )
     payload = client.get("treasury", url, ttl=3600, max_age=3600)

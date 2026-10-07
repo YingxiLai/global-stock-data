@@ -27,7 +27,7 @@ POLICIES = {
     "treasury": SourcePolicy(
         "treasury",
         True,
-        "https://home.treasury.gov/resource-center-data-chart-center/interest-rates/pages/xml",
+        "https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/interest-rate-xml-files",
         "Official nominal par daily XML feed; bounded year request; not market quotes",
     ),
     "cftc": SourcePolicy(
@@ -70,7 +70,7 @@ PATHS: dict[str, list[tuple[str, str]]] = {
         ("www.sec.gov", r"/Archives/edgar/daily-index/\d{4}/QTR[1-4]/master\.\d{8}\.idx"),
     ],
     "treasury": [
-        ("home.treasury.gov", r"/resource-center-data-chart-center/interest-rates/pages/xml")
+        ("home.treasury.gov", r"/resource-center/data-chart-center/interest-rates/pages/xml")
     ],
     "cftc": [("publicreporting.cftc.gov", r"/resource/6dca-aqww\.json")],
 }

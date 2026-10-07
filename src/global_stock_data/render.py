@@ -45,7 +45,7 @@ def markdown(report: dict[str, Any]) -> str:
     ]
     for evidence in report["evidence"]:
         lines.append(
-            f"- {text(evidence['id'])}: {text(evidence['status'])}; {text(evidence['evidence_ref'])}; observed {text(evidence.get('observed_at'))}; [{text(evidence['source_url'])}]({evidence['source_url']})"
+            f"- {text(evidence['id'])}: {text(evidence['status'])}; freshness: {text(evidence.get('freshness', 'unknown'))}; {text(evidence['evidence_ref'])}; observed {text(evidence.get('observed_at'))}; [{text(evidence['source_url'])}]({evidence['source_url']})"
         )
     for key, title in [
         ("opposing_case", "Counterevidence"),

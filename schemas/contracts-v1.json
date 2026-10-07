@@ -134,6 +134,14 @@
         "max_age_seconds": {
           "type": "number",
           "minimum": 0
+        },
+        "freshness": {
+          "enum": [
+            "unknown",
+            "fresh",
+            "stale",
+            "future"
+          ]
         }
       },
       "additionalProperties": true

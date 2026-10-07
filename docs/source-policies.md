@@ -1,6 +1,6 @@
 # Provider-specific access policy
 
-Reviewed 2026-10-07. Code Apache-2.0 is separate from third-party data rights. This is an engineering access gate for a recorded method/purpose, not blanket legal clearance. No source was probed for live market data during this implementation.
+Reviewed 2026-10-07. Code Apache-2.0 is separate from third-party data rights. This is an engineering access gate for a recorded method/purpose, not blanket legal clearance. Only explicit, minimal manual Treasury/CFTC government-feed checks were performed; see docs/validation.md. SEC and restricted sources were not probed.
 
 | Provider | Active method/scope | Requirements | Retention/export/AI boundary |
 |---|---|---|---|
@@ -21,8 +21,8 @@ Raw cache is private, not encrypted, and not committed. TTL is cache usability, 
 Policy evidence:
 
 - [SEC access requirements and index timing](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data): free public downloads, declared agent and aggregate rate policy, nightly indexes. [SEC API scope](https://www.sec.gov/search-filings/edgar-application-programming-interfaces) documents standard facts and latest-filed calendar frames.
-- [Treasury XML documentation](https://home.treasury.gov/resource-center-data-chart-center/interest-rates/pages/xml) documents daily feeds. Review only this government nominal-par feed; do not infer permission for third-party Treasury pages or transaction data.
-- [CFTC COT official guidance](https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm) documents PRE/API use, report types, weekly publication and bounded/nonexcessive API access. No data-series endpoint was sampled.
+- [Treasury XML documentation](https://home.treasury.gov/policy-issues/financing-the-government/interest-rate-statistics/interest-rate-xml-files) documents daily feeds. Review only this government nominal-par feed; do not infer permission for third-party Treasury pages or transaction data.
+- [CFTC COT official guidance](https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm) documents PRE/API use, report types, weekly publication and bounded/nonexcessive API access. A three-row explicit manual sample was checked; it does not establish full availability or coverage.
 - [FINRA terms](https://www.finra.org/terms-of-use) (last-modified 2023-11-09) were retrieved during review, including software/AI restrictions. [FINRA daily file scope](https://www.finra.org/finra-data/browse-catalog/short-sale-volume-data/daily-short-sale-volume-files) describes facility coverage.
 - [Cboe delayed-quotes app](https://www.cboe.com/delayed_quotes/app/) and [Yahoo terms](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html) are the review-baseline policy references. Current page extraction was unsuccessful (Cboe too large; Yahoo 999), so they remain blocked and current wording was not independently reverified. No endpoint workaround was attempted.
 - [AWS GetObject permissions](https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html) distinguish 403 access denial from 404 absence. XML AccessDenied does not prove an object is missing.

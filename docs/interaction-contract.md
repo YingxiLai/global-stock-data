@@ -10,6 +10,7 @@ The host can use Chinese or English display text while stable fields remain Engl
 6. Scenario: show inputs/formula/method and assumptions. Synthetic long-only weighted shocks are stress arithmetic, not return forecasts or personal recommendations.
 7. Reply briefly: supported answer, nearby evidence and relevant dates, most material gap/risk, one next step or up to two questions. Link an optional full dossier separately.
 8. Preserve unanswered original parts. If business research is answerable but today's valuation is unavailable, name both facts visibly.
+   Evidence freshness (unknown/fresh/stale/future) is independent of root status. Old or future timestamps must not relabel permission_blocked, error or conflict as stale; aggregation and rendered gaps retain those causes. Only otherwise successful evidence is downgraded by freshness checks.
 9. Watch, decide and save are different acts. Store only explicit user actions. Say “in this session” for MemoryStore; only say saved after FileStore.save succeeds. Monitoring is off. Proposal/consideration is not confirmed action.
 10. Review manually: supplied prior/new dossiers create an additive diff. Later data must not overwrite the old “then-known” record. No prior dossier means request that input.
 

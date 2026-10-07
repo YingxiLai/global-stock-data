@@ -110,6 +110,33 @@ class Acceptance(unittest.TestCase):
         zero = Record(**{**null.as_dict(), "data": {"value": 0}})
         self.assertNotEqual(null.as_dict(), zero.as_dict())
 
+    def test_root_failures_preserved_when_timestamp_stale_or_future(self):
+        for state in ("permission_blocked", "error", "conflict"):
+            for freshness, observed in (
+                ("stale", "2025-01-01T15:00:00Z"),
+                ("future", "2027-01-01T15:00:00Z"),
+            ):
+                with self.subTest(state=state, freshness=freshness):
+                    evidence = [
+                        {**self.base["evidence"][0], "status": state, "observed_at": observed}
+                    ]
+                    original = copy.deepcopy(evidence)
+                    report = self.make(evidence=evidence)
+                    self.assertEqual(evidence, original)
+                    self.assertEqual(report["evidence"][0]["status"], state)
+                    self.assertEqual(report["evidence"][0]["freshness"], freshness)
+                    self.assertEqual(report["data_status"], state)
+                    self.assertEqual(
+                        report["readiness"],
+                        "insufficient_evidence" if state == "conflict" else "blocked",
+                    )
+                    self.assertFalse(any(c["supported"] for c in report["claims"]))
+                    self.assertIn("data: " + state, short_answer(report))
+                    self.assertIn("demo-1:" + state, short_answer(report))
+                    self.assertIn("freshness: " + freshness, markdown(report))
+                    self.assertIn(state, markdown(report))
+                    self.assertNotIn("revenue is 100", short_answer(report))
+
     def test_A06_incompatible_units_and_periods_fail(self):
         a = Record(
             "synthetic",

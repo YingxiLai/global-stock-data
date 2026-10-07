@@ -100,13 +100,18 @@ def dossier(
             isinstance(item_max_age, int | float) and item_max_age >= 0,
             "Invalid evidence freshness rule",
         )
-        if observed is None and state == "ok":
-            state = "partial"
-        elif observed is not None:
+        freshness = "unknown"
+        if observed is not None:
             age = (current - instant(observed)).total_seconds()
-            if age < 0 or age > item_max_age:
+            freshness = "future" if age < 0 else "stale" if age > item_max_age else "fresh"
+        # Freshness cannot erase a source failure or conflict. Only an otherwise
+        # successful observation may be downgraded by this independent check.
+        if state == "ok":
+            if freshness == "unknown":
+                state = "partial"
+            elif freshness in ("stale", "future"):
                 state = "stale"
-        by_id[cast(str, identifier)] = {**item, "status": state}
+        by_id[cast(str, identifier)] = {**item, "status": state, "freshness": freshness}
         states.add(state)
     validated_claims = []
     for claim in claims:

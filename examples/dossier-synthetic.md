@@ -9,4 +9,4 @@ This is research readiness; the decision and execution remain with the user.
 
 ## Evidence
 
-- demo-1: ok; synthetic:acme-v1; observed 2026-01-02T15:00:00+00:00; [synthetic://fixture/acme](synthetic://fixture/acme)
+- demo-1: ok; freshness: fresh; synthetic:acme-v1; observed 2026-01-02T15:00:00+00:00; [synthetic://fixture/acme](synthetic://fixture/acme)

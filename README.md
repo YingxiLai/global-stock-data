@@ -42,7 +42,7 @@ See [product specification](PRODUCT_SPEC.md), [interaction contract](docs/intera
 
 ## Controlled online access
 
-Operator opt-in and source-specific requirements are mandatory. SEC requires a **real contact explicitly set by the operator** in `SEC_CONTACT`; it is never inferred from login, profile, email or Git identity. Do not publish it. Missing/placeholder configuration fails before any SEC request. This project has not performed live market-data smoke tests.
+Operator opt-in and source-specific requirements are mandatory. SEC requires a **real contact explicitly set by the operator** in `SEC_CONTACT`; it is never inferred from login, profile, email or Git identity. Do not publish it. Missing/placeholder configuration fails before any SEC request. A minimal explicit Treasury/CFTC manual check is recorded in [validation scope](docs/validation.md); SEC and restricted sources were not sampled. CI uses only synthetic offline inputs.
 
 ```sh
 # Configure SEC_CONTACT outside the repository using your own real declared contact.

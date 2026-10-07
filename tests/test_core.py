@@ -14,6 +14,7 @@ from global_stock_data.indicators import bollinger, ema, kdj, macd, rsi, sma, va
 from global_stock_data.local import finra_volume, scaled_quote, yahoo_bars
 from global_stock_data.macro import cot, cot_rows, spread_basis_points, treasury, treasury_xml
 from global_stock_data.options import activity, parse_osi, signed_delta_exposure, zero_dte
+from global_stock_data.policy import authorize
 from global_stock_data.records import Record, compare, evidence_hash, instant, number
 from global_stock_data.research import (
     alert,
@@ -50,6 +51,25 @@ class Base(unittest.TestCase):
 
 
 class HttpTests(Base):
+    def test_treasury_documented_endpoint_and_query_scope(self):
+        url = (
+            "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+            "?data=daily_treasury_yield_curve&field_tdr_date_value=2026"
+        )
+        self.responses = [Response(200, {}, (FIXTURES / "treasury-synthetic.xml").read_bytes())]
+        result = treasury(self.client, 2026)
+        self.assertEqual(result["source_url"], url)
+        self.assertEqual(self.calls[0][0], url)
+        self.assertEqual(result["rows"][0]["unit"], "percent")
+        self.raises_code(
+            "url_denied",
+            authorize,
+            "treasury",
+            url.replace("resource-center/data-chart-center", "resource-center-data-chart-center"),
+            online=True,
+        )
+        self.raises_code("url_denied", authorize, "treasury", url + "&all=1", online=True)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -597,6 +617,7 @@ class ResearchTests(Base):
         self.assertEqual(json.loads(out.getvalue())["data_status"], "ok")
         with redirect_stdout(io.StringIO()):
             self.assertEqual(main(["sources"]), 0)
+        with redirect_stdout(io.StringIO()) as research_out:
             self.assertEqual(
                 main(
                     [
@@ -608,6 +629,12 @@ class ResearchTests(Base):
                 ),
                 0,
             )
+        report = json.loads(research_out.getvalue())
+        self.assertEqual(report["original_request"], "Inspect synthetic revenue")
+        self.assertEqual(report["data_status"], "ok")
+        self.assertEqual(report["readiness"], "answerable")
+        self.assertTrue(report["claims"][0]["supported"])
+        self.assertEqual(report["evidence"][0]["evidence_ref"], "synthetic:acme-v1")
         with redirect_stderr(io.StringIO()) as err:
             self.assertEqual(main(["sec-facts", "1"]), 2)
         self.assertEqual(json.loads(err.getvalue())["error"]["code"], "offline")
