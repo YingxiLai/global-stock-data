@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "dossier_id": "sha256:f36dfc978b140bb011c5a543301825953a80825d6eafe2a0ea87b9156294eac5",
+  "version": 1,
+  "original_request": "What does synthetic ACME evidence support?",
+  "answered_scope": [
+    "Synthetic revenue is 100 units.",
+    "A 10% price shock with 20% weight changes portfolio value by 2%."
+  ],
+  "unresolved_parts": [],
+  "requirement_coverage": [
+    {
+      "id": "revenue",
+      "description": "Inspect synthetic revenue",
+      "instrument": "SYNTH:ACME",
+      "evidence_metrics": [
+        "revenue"
+      ],
+      "status": "answered",
+      "covering_claim_indexes": [
+        0
+      ]
+    }
+  ],
+  "request": {
+    "schema_version": "1.0",
+    "intent": "research",
+    "question": "What does synthetic ACME evidence support?",
+    "autonomy": "research",
+    "watchlist": [
+      "SYNTH:ACME"
+    ],
+    "requirements": [
+      {
+        "id": "revenue",
+        "description": "Inspect synthetic revenue",
+        "instrument": "SYNTH:ACME",
+        "evidence_metrics": [
+          "revenue"
+        ]
+      }
+    ]
+  },
+  "data_status": "ok",
+  "readiness": "answerable",
+  "evidence": [
+    {
+      "id": "demo-1",
+      "status": "ok",
+      "source_url": "synthetic://fixture/acme",
+      "evidence_ref": "synthetic:acme-v1",
+      "observed_at": "2026-01-02T15:00:00+00:00",
+      "instrument": "SYNTH:ACME",
+      "metric": "revenue",
+      "freshness": "fresh",
+      "effective_freshness_rule": {
+        "basis": "observed_at",
+        "max_age_seconds": 86400
+      }
+    }
+  ],
+  "claims": [
+    {
+      "kind": "fact",
+      "text": "Synthetic revenue is 100 units.",
+      "evidence_ids": [
+        "demo-1"
+      ],
+      "requirement_ids": [
+        "revenue"
+      ],
+      "supported": true
+    },
+    {
+      "kind": "scenario",
+      "text": "A 10% price shock with 20% weight changes portfolio value by 2%.",
+      "evidence_ids": [
+        "demo-1"
+      ],
+      "assumptions": [
+        "static weights",
+        "synthetic prices"
+      ],
+      "supported": true
+    }
+  ],
+  "clarifying_questions": [],
+  "gaps": [],
+  "opposing_case": [],
+  "risks": [],
+  "change_conditions": [],
+  "constraint_checks": "unknown; only explicit scenario checks implemented",
+  "freshness_policy_id": "explicit_observed_age_v1",
+  "evaluation_context": {
+    "method": "explicit_scope_freshness_v2",
+    "max_age_seconds": 86400,
+    "freshness_policy_id": "explicit_observed_age_v1"
+  },
+  "generated_at": "2026-01-02T16:00:00+00:00",
+  "answerable_is_buy_signal": false,
+  "next_action": "human_review",
+  "what_if": {
+    "portfolio_return": -0.020000000000000004,
+    "cash_weight": 0.8,
+    "concentration_breaches": [],
+    "assumptions": "static_weights; no_rebalancing; no_fees_tax_fx; scenario_not_forecast"
+  }
+}

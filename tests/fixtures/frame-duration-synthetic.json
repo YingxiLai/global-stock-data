@@ -1,0 +1,12 @@
+{
+  "taxonomy": "us-gaap",
+  "tag": "EarningsPerShareDiluted",
+  "ccp": "CY2025Q1",
+  "uom": "USD/shares",
+  "pts": 2,
+  "label": "Synthetic EPS fixture",
+  "data": [
+    {"cik": 1, "entityName": "Synthetic A", "accn": "synthetic-a", "start": "2025-01-01", "end": "2025-03-31", "val": 1.234567, "filed": "2025-04-20", "form": "10-Q"},
+    {"cik": 2, "entityName": "Synthetic B", "accn": "synthetic-b", "start": "2025-01-01", "end": "2025-03-31", "val": null}
+  ]
+}

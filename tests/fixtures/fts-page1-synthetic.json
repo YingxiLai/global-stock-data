@@ -1,0 +1,8 @@
+{
+  "hits": {
+    "total": {"value": 3, "relation": "eq"},
+    "hits": [
+      {"_id": "synthetic-search-c", "_score": 1, "_source": {"file_date": "2025-06-20", "root_form": "10-Q", "display_names": ["Synthetic C"], "adsh": "synthetic-c", "ciks": ["0000000003"]}}
+    ]
+  }
+}

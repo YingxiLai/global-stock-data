@@ -1,0 +1,3 @@
+Date|Symbol|ShortVolume|ShortExemptVolume|TotalVolume|Market
+20260102|SYNTH|40|5|100|B,Q,N
+1

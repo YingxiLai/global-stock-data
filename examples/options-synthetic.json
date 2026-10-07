@@ -1,0 +1,22 @@
+[
+  {
+    "contract_id": "SYNTH:C",
+    "side": "C",
+    "expiry": "2026-01-02",
+    "volume": 10,
+    "open_interest": 20,
+    "multiplier": 10,
+    "iv": 0.2,
+    "iv_unit": "fraction"
+  },
+  {
+    "contract_id": "SYNTH:P",
+    "side": "P",
+    "expiry": "2026-01-02",
+    "volume": 5,
+    "open_interest": 30,
+    "multiplier": 100,
+    "iv": 0.4,
+    "iv_unit": "fraction"
+  }
+]

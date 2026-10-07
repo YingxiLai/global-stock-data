@@ -1,0 +1,62 @@
+[
+  {
+    "case": "A01",
+    "synthetic": true,
+    "description": "Narrow synthetic filing lookup, zero personal questions"
+  },
+  {
+    "case": "A02",
+    "synthetic": true,
+    "description": "Buy question keeps price/valuation unresolved while business research proceeds"
+  },
+  {
+    "case": "A03",
+    "synthetic": true,
+    "description": "Declined context remains unknown, no repeated asset request"
+  },
+  {
+    "case": "A04",
+    "synthetic": true,
+    "description": "Disabled/403 source blocked, reliable facts retained"
+  },
+  {
+    "case": "A05",
+    "synthetic": true,
+    "description": "Stale cache differs from successful empty result; null differs from zero"
+  },
+  {
+    "case": "A06",
+    "synthetic": true,
+    "description": "Quarter/YTD/currency/scale mismatch blocks computation"
+  },
+  {
+    "case": "A07",
+    "synthetic": true,
+    "description": "Conflicts retain evidence; unsupported facts suppressed"
+  },
+  {
+    "case": "A08",
+    "synthetic": true,
+    "description": "Volume/OI is activity, signed delta required; CNMS limited"
+  },
+  {
+    "case": "A09",
+    "synthetic": true,
+    "description": "Synthetic long-only stress arithmetic, no real portfolio inferred"
+  },
+  {
+    "case": "A10",
+    "synthetic": true,
+    "description": "Explicit watch in memory, monitoring off"
+  },
+  {
+    "case": "A11",
+    "synthetic": true,
+    "description": "Human confirmed defer/watch appended, not executed"
+  },
+  {
+    "case": "A12",
+    "synthetic": true,
+    "description": "Manual review retains old evidence; no trading/private export"
+  }
+]
