@@ -348,10 +348,14 @@
           "const": "1.0"
         },
         "decision_id": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "dossier_ref": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "dossier_version": {
           "type": "integer",
@@ -380,7 +384,9 @@
           ]
         },
         "user_statement": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "execution_status": {
           "enum": [
@@ -392,7 +398,9 @@
           "type": [
             "string",
             "null"
-          ]
+          ],
+          "minLength": 1,
+          "pattern": "\\S"
         },
         "user_approved": {
           "type": "boolean"

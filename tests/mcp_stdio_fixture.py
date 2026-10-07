@@ -28,7 +28,12 @@ def sender(url, headers, timeout):
         raise AssertionError("Unexpected synthetic endpoint")
     calls.append({"url": url, "sec_agent_present": "@" in headers["User-Agent"]})
     Path(sys.argv[2]).write_text(json.dumps(calls))
-    return Response(200, {}, (FIXTURES / fixture).read_bytes())
+    body = (FIXTURES / fixture).read_bytes()
+    if "/frames/" in url and len(sys.argv) > 3 and sys.argv[3] == "large-frame":
+        raw = json.loads(body)
+        raw["data"][0]["padding"] = "x" * 110_000
+        body = json.dumps(raw).encode()
+    return Response(200, {}, body)
 
 
 if __name__ == "__main__":

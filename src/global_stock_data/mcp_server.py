@@ -111,7 +111,7 @@ def create_server(
     try:
         from mcp.server import MCPServer
         from mcp.server.mcpserver.exceptions import ToolError
-        from mcp_types import ToolAnnotations
+        from mcp_types import CallToolResult, TextContent, ToolAnnotations
     except ImportError as exc:
         raise DataError(
             "capability_unavailable", "Optional pinned mcp extra is not installed"
@@ -125,10 +125,23 @@ def create_server(
     server: Any = MCPServer("global-stock-data-research", version=__version__, subscriptions=False)
     original_call = server.call_tool
 
+    def small_error(code: str, message: str) -> Any:
+        payload = DataError(code, message).as_dict()
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(payload, allow_nan=False))],
+            structured_content=payload,
+            is_error=True,
+        )
+
     async def strict_call(name: str, arguments: dict[str, Any], context: Any = None) -> Any:
-        if name not in fields or not isinstance(arguments, dict) or set(arguments) - fields[name]:
-            raise ToolError("Unknown tool or undeclared arguments rejected")
         try:
+            require(
+                name in fields
+                and isinstance(arguments, dict)
+                and not (set(arguments) - fields[name]),
+                "Unknown tool or undeclared arguments rejected",
+                "tool_denied",
+            )
             json_bound(arguments, 100_000, "Tool input too large")
             if name == "research_fetch":
                 read_input(
@@ -153,9 +166,28 @@ def create_server(
                     "Freshness number required",
                     "input",
                 )
+            result = await original_call(name, arguments, context)
         except DataError as exc:
-            raise ToolError(str(exc)) from exc
-        return await original_call(name, arguments, context)
+            result = small_error(exc.code, str(exc))
+        except ToolError:
+            # SDK validation/tool failures must not echo rejected inputs.
+            result = small_error("tool_error", "Tool call failed")
+        try:
+            # The SDK duplicates JSON into text and structuredContent. Measure
+            # the fully converted CallToolResult, aliases/escaping included.
+            json_bound(
+                result.model_dump(mode="json", by_alias=True),
+                200_000,
+                "Complete MCP result exceeds response bound",
+            )
+        except DataError:
+            result = small_error("output_too_large", "Complete MCP result exceeds response bound")
+        json_bound(
+            result.model_dump(mode="json", by_alias=True),
+            200_000,
+            "Complete MCP result exceeds response bound",
+        )
+        return result
 
     # Validate the pinned SDK public call boundary before argument coercion.
     server.call_tool = strict_call

@@ -7,39 +7,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .contracts import validate_decision_record
 from .errors import DataError, require
 from .records import instant
-
-
-def validate_decision_record(item: Any) -> None:
-    """Validate approval semantics at creation, snapshots and private disk boundaries."""
-    require(isinstance(item, dict), "Invalid decision record", "approval_required")
-    approved = item.get("user_approved")
-    require(type(approved) is bool, "Human approval must be boolean", "approval_required")
-    require(
-        (item.get("state"), item.get("actor"))
-        == (("confirmed", "user") if approved else ("proposed", "proposal")),
-        "Decision state and actor must match approval",
-        "approval_required",
-    )
-    reference = item.get("confirmation_ref")
-    require(
-        (isinstance(reference, str) and bool(reference.strip()) and len(reference) <= 1000)
-        if approved
-        else reference is None,
-        "Confirmed decisions require an explicit human reference",
-        "approval_required",
-    )
-    require(
-        item.get("execution_status")
-        == (
-            "user_reported"
-            if approved and item.get("decision") == "user_reported_action"
-            else "not_applicable"
-        ),
-        "Execution reporting must match the confirmed human decision",
-        "approval_required",
-    )
 
 
 def validate_state(state: Any) -> None:
@@ -125,33 +95,6 @@ class MemoryStore:
     ) -> dict[str, Any]:
         instant(now)
         require(type(confirmed) is bool, "Human confirmation must be boolean", "approval_required")
-        require(
-            bool(identifier and dossier_ref and user_statement) and dossier_version >= 1,
-            "Decision identity and statement required",
-        )
-        require(
-            decision
-            in (
-                "continue_research",
-                "watch",
-                "defer",
-                "no_action",
-                "user_reported_action",
-                "other",
-            ),
-            "Unsupported human decision",
-        )
-        require(
-            all(d["decision_id"] != identifier for d in self.state["decisions"]),
-            "Decision ID already exists",
-            "conflict",
-        )
-        if supersedes:
-            require(
-                any(d["decision_id"] == supersedes for d in self.state["decisions"]),
-                "Unknown superseded decision",
-                "input",
-            )
         item = {
             "schema_version": "1.0",
             "decision_id": identifier,
@@ -171,6 +114,18 @@ class MemoryStore:
             else "not_applicable",
         }
         validate_decision_record(item)
+        validate_state(self.state)
+        require(
+            all(d["decision_id"] != identifier for d in self.state["decisions"]),
+            "Decision ID already exists",
+            "conflict",
+        )
+        if supersedes is not None:
+            require(
+                any(d["decision_id"] == supersedes for d in self.state["decisions"]),
+                "Unknown superseded decision",
+                "input",
+            )
         self.state["decisions"].append(item)
         return copy.deepcopy(item)
 
