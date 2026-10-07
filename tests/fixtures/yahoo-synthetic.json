@@ -1,0 +1,1 @@
+{"chart": {"result": [{"meta": {"exchangeTimezoneName": "America/New_York", "currency": "USD"}, "timestamp": [1767312000, 1767398400], "indicators": {"quote": [{"open": [null, 1.2], "high": [null, 1.3], "low": [null, 1.1], "close": [null, 1.23456789], "volume": [null, 20]}], "adjclose": [{"adjclose": [null, 1.1]}]}, "events": {"splits": {"synthetic": {"ratio": "2:1"}}}}]}}

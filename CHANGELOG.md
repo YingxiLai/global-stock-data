@@ -1,3 +1,7 @@
+# Fork 3.0.0 — 2026-10-07
+
+Rebuilt active implementation as a versioned package/CLI, policy-gated HTTP, evidence-preserving parsing, offline numerical/research workflows, explicit private state, optional stdio MCP and quality CI. See docs/review-matrix.md for completed, disabled and deferred capabilities. No live market-data validation is claimed. Original upstream history follows.
+
 # Changelog
 
 ## v2.0.3 — 2026-07-26

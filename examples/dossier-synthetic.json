@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "dossier_id": "sha256:fc1700185f8841e9b4b9c479b951a6471e6c7018cb35d9af2d67b6124bb73844",
+  "version": 1,
+  "original_request": "What does synthetic ACME evidence support?",
+  "answered_scope": [
+    "Synthetic revenue is 100 units.",
+    "A 10% price shock with 20% weight changes portfolio value by 2%."
+  ],
+  "unresolved_parts": [],
+  "request": {
+    "schema_version": "1.0",
+    "intent": "research",
+    "question": "What does synthetic ACME evidence support?",
+    "autonomy": "research",
+    "watchlist": [
+      "SYNTH:ACME"
+    ]
+  },
+  "data_status": "ok",
+  "readiness": "answerable",
+  "evidence": [
+    {
+      "id": "demo-1",
+      "status": "ok",
+      "source_url": "synthetic://fixture/acme",
+      "evidence_ref": "synthetic:acme-v1",
+      "observed_at": "2026-01-02T15:00:00+00:00"
+    }
+  ],
+  "claims": [
+    {
+      "kind": "fact",
+      "text": "Synthetic revenue is 100 units.",
+      "evidence_ids": [
+        "demo-1"
+      ],
+      "supported": true
+    },
+    {
+      "kind": "scenario",
+      "text": "A 10% price shock with 20% weight changes portfolio value by 2%.",
+      "evidence_ids": [
+        "demo-1"
+      ],
+      "assumptions": [
+        "static weights",
+        "synthetic prices"
+      ],
+      "supported": true
+    }
+  ],
+  "clarifying_questions": [],
+  "gaps": [],
+  "opposing_case": [],
+  "risks": [],
+  "change_conditions": [],
+  "constraint_checks": "unknown; only explicit scenario checks implemented",
+  "freshness_policy_id": "explicit_observed_age_v1",
+  "generated_at": "2026-01-02T16:00:00+00:00",
+  "answerable_is_buy_signal": false,
+  "next_action": "human_review",
+  "what_if": {
+    "portfolio_return": -0.020000000000000004,
+    "cash_weight": 0.8,
+    "concentration_breaches": [],
+    "assumptions": "static_weights; no_rebalancing; no_fees_tax_fx; scenario_not_forecast"
+  }
+}

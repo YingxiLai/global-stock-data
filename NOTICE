@@ -1,0 +1,18 @@
+Global Stock Data research fork
+
+Based on simonlin1212/global-stock-data, upstream commit
+5f27525709ab043b91e53d7a420ce6d46e66a0ce (Skill v2.0.3).
+Upstream author: Simon Lin / simonlin1212.
+Upstream Apache License 2.0 is retained unchanged in LICENSE.
+
+Modified in this fork: README.md, README_zh.md, SKILL.md, CHANGELOG.md.
+New Python implementation, synthetic fixtures, product/schema/quality documents,
+CI and package metadata were added for v3.0.0. No upstream embedded Python
+snippet is an active executable module. Historical source is preserved in Git.
+
+Optional dependency: official modelcontextprotocol/python-sdk v2.3.0, MIT.
+Installed dependency distributions include their own license notices; see
+THIRD_PARTY_NOTICES.md. No external finance platform source was copied.
+
+Apache-2.0 licenses this code, not third-party data. Source-specific access,
+retention, use and redistribution rights remain separate.
