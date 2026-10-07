@@ -20,3 +20,5 @@ The executable A01–A12 methods are in tests/test_product.py; financial/error/c
 examples/conversations.json is a synthetic case inventory; examples/research-synthetic.json and demo outputs are runnable workflow fixtures. No real user dialogue is published. The host remains responsible for forming valid claim text, source-aware thresholds and prompt-injection handling. We do not claim semantic truth merely because a cited string passes a schema.
 
 JSON Schema contracts are structural; runtime validators establish evidence references, critical status/readiness, temporal freshness, explicit human actions and comparison invariants. Optional MCP tests check actual tool listing and calls in-process and through a real stdio subprocess, with no port/account/provider service.
+
+Follow-up acceptance is covered in test_extensions.py and test_review_regressions.py: bounded Frames/FTS and source errors, expiry/DTE/count summaries, operator-scoped/default-offline MCP reads, real stdio read-to-dossier loop, requirement coverage, evaluation identity, isolated snapshots and per-underlying delta. Failing scope or unknown source freshness must stay visibly unresolved.

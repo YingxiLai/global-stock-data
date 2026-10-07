@@ -1,5 +1,6 @@
 """Evidence envelope; no zero imputation or guessed units."""
 
+import copy
 import hashlib
 import json
 import math
@@ -57,6 +58,7 @@ class Record:
     schema_version: str = "1.0"
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "data", copy.deepcopy(self.data))
         instant(self.fetched_at)
         for value in (self.observed_at, self.reported_at, self.disclosed_at):
             if value is not None:

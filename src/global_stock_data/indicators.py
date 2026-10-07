@@ -1,11 +1,54 @@
 """Indicator conventions: explicit seed/warmup, gaps reset each segment."""
 
 import math
+from collections.abc import Callable
 from datetime import date
-from typing import Any, cast
+from functools import wraps
+from typing import Any, ParamSpec, TypeVar, cast
 
-from .errors import require
+from .errors import DataError, require
 from .records import number
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def finite_result(function: Callable[P, T]) -> Callable[P, T]:
+    @wraps(function)
+    def checked(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            result = function(*args, **kwargs)
+        except OverflowError as exc:
+            raise DataError("schema", "Indicator arithmetic exceeds finite range") from exc
+
+        def check(value: Any) -> None:
+            if isinstance(value, float):
+                require(math.isfinite(value), "Indicator output is non-finite")
+            elif isinstance(value, dict):
+                for item in value.values():
+                    check(item)
+            elif isinstance(value, list):
+                for item in value:
+                    check(item)
+
+        check(result)
+        return result
+
+    return checked
+
+
+def validate_ohlc(bar: dict[str, Any]) -> None:
+    values = {key: number(bar.get(key)) for key in ("open", "high", "low", "close", "volume")}
+    low, high = values["low"], values["high"]
+    require(low is None or high is None or low <= high, "Low exceeds high")
+    for key in ("open", "close"):
+        value = values[key]
+        require(
+            value is None or ((low is None or value >= low) and (high is None or value <= high)),
+            "OHLC invariant failed",
+        )
+    volume = values["volume"]
+    require(volume is None or volume >= 0, "Negative volume")
 
 
 def period(value: int) -> None:
@@ -24,15 +67,11 @@ def validate_bars(bars: list[dict[str, Any]]) -> list[float | None]:
     require(dates == sorted(set(dates)), "Bars must be ordered and unique", "input")
     closes = [number(bar.get("close")) for bar in bars]
     for bar in bars:
-        low, high = number(bar.get("low")), number(bar.get("high"))
-        if low is not None and high is not None:
-            require(low <= high, "Low exceeds high")
-            for key in ("open", "close"):
-                val = number(bar.get(key))
-                require(val is None or low <= val <= high, "OHLC invariant failed")
+        validate_ohlc(bar)
     return closes
 
 
+@finite_result
 def sma(values: list[float | None], n: int) -> list[float | None]:
     period(n)
     result: list[float | None] = []
@@ -47,6 +86,7 @@ def sma(values: list[float | None], n: int) -> list[float | None]:
     return result
 
 
+@finite_result
 def ema(values: list[float | None], n: int) -> list[float | None]:
     """SMA seed after n nonmissing values; then alpha=2/(n+1)."""
     period(n)
@@ -67,6 +107,7 @@ def ema(values: list[float | None], n: int) -> list[float | None]:
     return result
 
 
+@finite_result
 def rsi(values: list[float | None], n: int = 14, *, variant: str = "wilder") -> list[float | None]:
     period(n)
     require(variant in ("wilder", "simple"), "RSI variant must be wilder or simple", "input")
@@ -102,6 +143,7 @@ def rsi(values: list[float | None], n: int = 14, *, variant: str = "wilder") -> 
     return result
 
 
+@finite_result
 def macd(
     values: list[float | None],
     fast: int = 12,
@@ -132,6 +174,7 @@ def macd(
     }
 
 
+@finite_result
 def bollinger(
     values: list[float | None], n: int = 20, deviations: float = 2
 ) -> list[dict[str, float | None]]:
@@ -150,6 +193,7 @@ def bollinger(
     return output
 
 
+@finite_result
 def kdj(bars: list[dict[str, Any]], n: int = 9) -> list[dict[str, float | None]]:
     period(n)
     validate_bars(bars)

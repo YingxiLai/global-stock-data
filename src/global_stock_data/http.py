@@ -148,6 +148,26 @@ class Payload:
             raise DataError("schema", "Response is not valid JSON") from exc
 
 
+def validate_sec_contact(contact: str) -> None:
+    require(
+        bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", contact))
+        and not any(
+            s in contact.lower()
+            for s in (
+                "example.",
+                "placeholder",
+                "your@",
+                "contact@domain",
+                ".invalid",
+                ".test",
+                ".localhost",
+            )
+        ),
+        "SEC_CONTACT must be an explicitly configured real contact",
+        "config",
+    )
+
+
 class Client:
     def __init__(
         self,
@@ -159,6 +179,7 @@ class Client:
         clock: Callable[[], float] = time.time,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
+        require(type(online) is bool, "Online flag must be an explicit boolean", "config")
         self.online, self.sec_contact = online, sec_contact
         self.sender, self.clock, self.sleep = sender, clock, sleep
         self.state_dir = state_dir
@@ -203,23 +224,7 @@ class Client:
         }
         if provider == "sec":
             contact: str = self.sec_contact or os.environ.get("SEC_CONTACT", "") or ""
-            require(
-                bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", contact))
-                and not any(
-                    s in contact.lower()
-                    for s in (
-                        "example.",
-                        "placeholder",
-                        "your@",
-                        "contact@domain",
-                        ".invalid",
-                        ".test",
-                        ".localhost",
-                    )
-                ),
-                "SEC_CONTACT must be an explicitly configured real contact",
-                "config",
-            )
+            validate_sec_contact(contact)
             headers["User-Agent"] += " " + contact
         budget = self.initialize(provider)
         key = hashlib.sha256(url.encode()).hexdigest()

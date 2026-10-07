@@ -4,6 +4,8 @@ No execution, broker connectivity, notifications or background monitoring.
 Input is untrusted data; it cannot expand tool autonomy or source permissions.
 """
 
+import copy
+import math
 from datetime import timedelta
 from typing import Any, cast
 from urllib.parse import urlsplit
@@ -17,6 +19,7 @@ AUTONOMY = {"manual", "research", "draft"}
 
 
 def validate_request(request: dict[str, Any]) -> None:
+    require(isinstance(request, dict), "Research request must be an object")
     require(request.get("schema_version") == "1.0", "Unsupported research schema")
     require(
         isinstance(request.get("question"), str) and bool(request["question"].strip()),
@@ -56,6 +59,28 @@ def validate_request(request: dict[str, Any]) -> None:
         and len(watchlist) == len(set(watchlist)),
         "Watchlist must contain unique asset IDs",
     )
+    requirements = request.get("requirements", [])
+    require(isinstance(requirements, list), "Requirements must be a list")
+    identifiers = set()
+    for requirement in requirements:
+        require(
+            isinstance(requirement, dict)
+            and isinstance(requirement.get("id"), str)
+            and bool(requirement["id"])
+            and requirement["id"] not in identifiers
+            and isinstance(requirement.get("description"), str)
+            and bool(requirement["description"])
+            and isinstance(requirement.get("evidence_metrics"), list)
+            and bool(requirement["evidence_metrics"])
+            and all(
+                isinstance(metric, str) and bool(metric)
+                for metric in requirement["evidence_metrics"]
+            )
+            and isinstance(requirement.get("instrument"), str)
+            and bool(requirement["instrument"]),
+            "Each requirement needs unique id, original scope, metrics and instrument",
+        )
+        identifiers.add(requirement["id"])
 
 
 def dossier(
@@ -66,12 +91,24 @@ def dossier(
     now: str,
     max_age_seconds: float = 86400,
 ) -> dict[str, Any]:
+    # Validation, identity and stored nested fields all use the same isolated
+    # snapshot. Reusing caller inputs cannot rewrite then-known research.
+    request, evidence, claims = copy.deepcopy((request, evidence, claims))
     validate_request(request)
     current = instant(now)
-    require(max_age_seconds >= 0, "Invalid research freshness bound")
+    require(
+        type(max_age_seconds) in (int, float)
+        and math.isfinite(max_age_seconds)
+        and max_age_seconds >= 0,
+        "Invalid research freshness bound",
+    )
+    require(
+        isinstance(evidence, list) and isinstance(claims, list), "Evidence/claims must be lists"
+    )
     by_id: dict[str, dict[str, Any]] = {}
     states = set()
     for item in evidence:
+        require(isinstance(item, dict), "Evidence must be an object")
         identifier = item.get("id")
         require(
             isinstance(identifier, str) and bool(identifier) and identifier not in by_id,
@@ -97,7 +134,9 @@ def dossier(
         observed = item.get(basis)
         item_max_age = item.get("max_age_seconds", max_age_seconds)
         require(
-            isinstance(item_max_age, int | float) and item_max_age >= 0,
+            type(item_max_age) in (int, float)
+            and math.isfinite(item_max_age)
+            and item_max_age >= 0,
             "Invalid evidence freshness rule",
         )
         freshness = "unknown"
@@ -111,10 +150,16 @@ def dossier(
                 state = "partial"
             elif freshness in ("stale", "future"):
                 state = "stale"
-        by_id[cast(str, identifier)] = {**item, "status": state, "freshness": freshness}
+        by_id[cast(str, identifier)] = {
+            **item,
+            "status": state,
+            "freshness": freshness,
+            "effective_freshness_rule": {"basis": basis, "max_age_seconds": item_max_age},
+        }
         states.add(state)
     validated_claims = []
     for claim in claims:
+        require(isinstance(claim, dict), "Claim must be an object")
         require(
             claim.get("kind")
             in ("fact", "calculation", "inference", "scenario", "assumption", "user_statement"),
@@ -123,7 +168,7 @@ def dossier(
         require(isinstance(claim.get("text"), str) and bool(claim["text"]), "Claim text required")
         refs = claim.get("evidence_ids", [])
         require(
-            isinstance(refs, list) and all(ref in by_id for ref in refs),
+            isinstance(refs, list) and all(isinstance(ref, str) and ref in by_id for ref in refs),
             "Claim evidence reference unresolved",
         )
         require(
@@ -144,6 +189,17 @@ def dossier(
         validated_claims.append(
             {**claim, "supported": bool(refs) and all(by_id[ref]["status"] == "ok" for ref in refs)}
         )
+    requirement_ids = {r["id"] for r in request.get("requirements", [])}
+    for claim in validated_claims:
+        coverage_ids = claim.get("requirement_ids", [])
+        require(
+            isinstance(coverage_ids, list)
+            and all(
+                isinstance(identifier, str) and identifier in requirement_ids
+                for identifier in coverage_ids
+            ),
+            "Claim requirement coverage unresolved",
+        )
     priority = ("permission_blocked", "error", "conflict", "stale", "partial", "no_data", "ok")
     status = next((value for value in priority if value in states), "no_data")
     supported = bool(validated_claims) and all(c["supported"] for c in validated_claims)
@@ -158,14 +214,48 @@ def dossier(
         ):
             questions.append("What loss or allocation limit should constrain this decision?")
     unresolved = list(request.get("unresolved_parts", []))
+    coverage = []
+    if not request.get("requirements"):
+        unresolved.append("original_scope_not_assessed; explicit_requirements_required")
+    for requirement in request.get("requirements", []):
+        matching = [
+            (index, claim)
+            for index, claim in enumerate(validated_claims)
+            if claim["supported"] and requirement["id"] in claim.get("requirement_ids", [])
+        ]
+        metrics = {
+            by_id[ref].get("metric")
+            for _, claim in matching
+            for ref in claim.get("evidence_ids", [])
+            if by_id[ref].get("instrument") == requirement["instrument"]
+        }
+        covered = set(requirement["evidence_metrics"]) <= metrics
+        coverage.append(
+            {
+                **requirement,
+                "status": "answered" if covered else "unresolved",
+                "covering_claim_indexes": [index for index, _ in matching] if covered else [],
+            }
+        )
+        if not covered:
+            unresolved.append("requirement:" + requirement["id"])
     required = request.get("required_evidence_ids", [])
     for identifier in required:
         if identifier not in by_id or by_id[identifier]["status"] != "ok":
             unresolved.append("required_evidence:" + identifier)
-    if request["intent"] in ("decision", "decision_support") and not any(
-        e.get("metric") == "current_price" and e["status"] == "ok" for e in by_id.values()
-    ):
-        unresolved.append("current_price_and_valuation_not_supported")
+    if request["intent"] in ("decision", "decision_support"):
+        instrument = request.get("instrument")
+        decision_metrics = {
+            by_id[ref].get("metric")
+            for claim in validated_claims
+            if claim["supported"]
+            for ref in claim.get("evidence_ids", [])
+            if instrument and by_id[ref].get("instrument") == instrument
+        }
+        if not instrument:
+            unresolved.append("decision_instrument_not_specified")
+        if not {"current_price", "valuation"} <= decision_metrics:
+            unresolved.append("current_price_and_valuation_not_supported")
     critical_states = {e["status"] for e in by_id.values() if e.get("critical", True)}
     if questions:
         readiness = "needs_clarification"
@@ -181,12 +271,21 @@ def dossier(
     return {
         "schema_version": "1.0",
         "dossier_id": evidence_hash(
-            {"request": request, "evidence": evidence, "claims": claims, "now": now}
+            {
+                "request": request,
+                "evidence": list(by_id.values()),
+                "claims": validated_claims,
+                "now": now,
+                "max_age_seconds": max_age_seconds,
+                "evaluation_method": "explicit_scope_freshness_v2",
+                "coverage": coverage,
+            }
         ),
         "version": 1,
         "original_request": request["question"],
         "answered_scope": [c["text"] for c in validated_claims if c["supported"]],
         "unresolved_parts": unresolved,
+        "requirement_coverage": coverage,
         "request": request,
         "data_status": status,
         "readiness": readiness,
@@ -199,6 +298,11 @@ def dossier(
         "change_conditions": request.get("change_conditions", []),
         "constraint_checks": "unknown; only explicit scenario checks implemented",
         "freshness_policy_id": request.get("freshness_policy_id", "explicit_observed_age_v1"),
+        "evaluation_context": {
+            "method": "explicit_scope_freshness_v2",
+            "max_age_seconds": max_age_seconds,
+            "freshness_policy_id": request.get("freshness_policy_id", "explicit_observed_age_v1"),
+        },
         "generated_at": now,
         "answerable_is_buy_signal": False,
         "next_action": "human_review"
@@ -212,6 +316,7 @@ def dossier(
 def decision_record(
     report: dict[str, Any], *, decision: str, rationale: str, user_approved: bool, review_on: str
 ) -> dict[str, Any]:
+    report = copy.deepcopy(report)
     require(
         report.get("readiness") == "answerable" and report.get("data_status") == "ok",
         "Decision record blocked by research gaps",

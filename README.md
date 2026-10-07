@@ -26,7 +26,7 @@ python3 -m venv .venv
 .venv/bin/gsd-mcp
 ```
 
-`gsd-mcp` speaks stdio. Its two registered tools, `research_dossier` and `what_if`, validate supplied evidence and calculate synthetic scenarios; they do not fetch data or save files. No HTTP transport, external server discovery, shell/path/SQL tool, credential or account tool is exposed. SDK 2.3.0 is pinned and its actual in-process and stdio calls are tested. [Reuse decisions](docs/reuse.md) explain why EdgarTools, TA-Lib, OpenBB and paid providers are candidates rather than installed integrations.
+`gsd-mcp` speaks stdio. research_dossier and what_if are pure tools. research_fetch reads fixed SEC/Treasury/CFTC capabilities only when the operator enables named providers at startup; by default it returns permission_blocked without network or disk access. Model arguments cannot enable providers/network, set credentials or cache paths. See [operator startup](docs/host-integration.md). No HTTP transport, external server discovery, shell/path/SQL tool, credential or account tool is exposed. SDK 2.3.0 is pinned and its actual in-process and stdio calls are tested. [Reuse decisions](docs/reuse.md) explain why EdgarTools, TA-Lib, OpenBB and paid providers are candidates rather than installed integrations.
 
 ## Research contract
 
@@ -71,11 +71,19 @@ PYTHONPATH=tests/offline_guard .venv/bin/python -m coverage run -m unittest disc
 
 Tests use our own synthetic fixtures and a process-level outbound socket guard, including the actual MCP stdio subprocess. CI uses hash-pinned dependencies, commit-pinned Actions, read-only repository permissions and no secrets. There is no `pull_request_target`, automatic trading, live smoke, data upload or data redistribution. See [validation scope](docs/validation.md) for precise results and untested boundaries.
 
+## Local option workflow
+
+```sh
+.venv/bin/gsd options examples/options-synthetic.json --snapshot-at 2026-01-02T16:00:00Z --dte-min 0 --dte-max 7
+```
+
+This reads synthetic local contracts, filters from the ET snapshot date and reports contract volume/OI/P-C statistics. It does not download a chain or infer net positions. See financial semantics for missing counts, IV units and grouped single-equity risk inputs.
+
 ## Migration and limitations
 
 [Migration](docs/migration.md) maps **every original function** to a replacement, a local-only parser or an explicit disabled/deferred capability. Original source remains accessible in Git history, never an active instruction to run archived code.
 
-XBRL keeps original fields, taxonomy/tag/unit/start/end/form/accession/filed/frame and all revisions. Domestic forms only; IFRS and foreign 20-F/40-F are unsupported. As-of uses filing dates, not exact availability timestamps. Duration classification is a documented heuristic. Full historical point-in-time backtests are blocked. Frames and SEC full-text search are deferred, not marketed as complete universes or complete search.
+XBRL keeps original fields, taxonomy/tag/unit/start/end/form/accession/filed/frame and all revisions. Domestic forms only; IFRS and foreign 20-F/40-F are unsupported. As-of uses filing dates, not exact availability timestamps. Duration classification is a documented heuristic. Full historical point-in-time backtests are blocked. SEC Frames and full-text search are implemented with explicit calendar/type/unit semantics, bounded pagination and completeness; neither establishes a PIT universe or earliest mention. Their live SEC schemas remain unverified.
 
 Options activity is descriptive; volume/OI does not establish new positions. Signed delta exposure requires actual signed holdings, multiplier, deliverable and delta basis. FINRA local parsing labels specified off-exchange facilities and revisions, not short interest or whole-market volume. Treasury is daily nominal par percent, CFTC `6dca-aqww` is Legacy Futures Only; neither is real-time.
 

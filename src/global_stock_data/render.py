@@ -1,5 +1,6 @@
 """Plain Markdown views; unsupported claims never appear as supported facts."""
 
+import copy
 import html
 from typing import Any
 
@@ -58,6 +59,7 @@ def markdown(report: dict[str, Any]) -> str:
 
 
 def review(previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
+    previous, current = copy.deepcopy((previous, current))
     require(
         previous.get("schema_version") == current.get("schema_version") == "1.0",
         "Incompatible dossier versions",

@@ -23,3 +23,9 @@ Example buy question: “Should I buy SYNTH:ACME now?” → “I can examine it
 Example watch: “Watch the next synthetic filing.” → add an explicit watching item and review condition. “Recorded in this session; automatic monitoring remains off.” No notification promise.
 
 Example user decision: a confirmed “defer” can be stored with its stated rationale and unresolved gaps. An assistant's buy proposal cannot become a user decision by itself. A statement that an action happened is only user_reported, not broker verified.
+
+## Explicit completion and immutable snapshots
+
+The host decomposes the original question into requirements with id, description, instrument and evidence_metrics. Claims bind requirement_ids; evidence supplies metric/instrument. Only supported claims with all required metrics for the same instrument cover a requirement. Missing requirements mean original scope was not assessed and prevent answerable. This is a structural host contract, not proof that natural-language claims are true or that the host faithfully decomposed a question. Decision support additionally needs same-instrument current_price and valuation evidence; price alone never completes it.
+
+Dossiers deep-copy nested inputs and retain requirement_coverage. Identity hashes the normalized snapshot, effective per-evidence freshness rules, global threshold, evaluation method and coverage. Different policy inputs produce different identities; these are new snapshots (version1), while review explicitly creates an additive next version. Stored decisions/watch conditions and exported snapshots do not alias caller lists; then-known gaps survive later input mutation.

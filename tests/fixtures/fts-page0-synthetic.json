@@ -1,0 +1,9 @@
+{
+  "hits": {
+    "total": {"value": 3, "relation": "eq"},
+    "hits": [
+      {"_id": "synthetic-search-a", "_score": 1, "_source": {"file_date": "2025-04-20", "root_form": "10-Q", "display_names": ["Synthetic A"], "adsh": "synthetic-a", "ciks": ["0000000001"]}},
+      {"_id": "synthetic-search-b", "_score": 1, "_source": {"file_date": "2025-05-20", "root_form": "10-Q", "display_names": ["Synthetic B"], "adsh": "synthetic-b", "ciks": ["0000000002"]}}
+    ]
+  }
+}

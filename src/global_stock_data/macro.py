@@ -76,6 +76,7 @@ def treasury(client: Client, year: int) -> dict[str, Any]:
 def cot_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     output = []
     for row in rows:
+        require(isinstance(row, dict), "COT row must be an object")
         stamp = row.get("report_date_as_yyyy_mm_dd")
         require(isinstance(stamp, str), "COT report date required")
         day = date.fromisoformat(cast(str, stamp)[:10])
@@ -116,7 +117,10 @@ def cot(client: Client, *, page_size: int = 100, max_pages: int = 1) -> dict[str
         )
         payload = client.get("cftc", url, ttl=3600, max_age=3600)
         batch = payload.json()
-        require(isinstance(batch, list), "COT result is not a list")
+        require(
+            isinstance(batch, list) and all(isinstance(row, dict) for row in batch),
+            "COT result must contain row objects",
+        )
         rows.extend(
             {
                 **row,

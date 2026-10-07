@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import asdict, dataclass
+from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
 from .errors import DataError
@@ -66,6 +67,11 @@ PATHS: dict[str, list[tuple[str, str]]] = {
     "sec": [
         ("data.sec.gov", r"/submissions/CIK\d{10}(?:-submissions-\d{3})?\.json"),
         ("data.sec.gov", r"/api/xbrl/companyfacts/CIK\d{10}\.json"),
+        (
+            "data.sec.gov",
+            r"/api/xbrl/frames/us-gaap/[A-Za-z][A-Za-z0-9]{0,119}/(?:USD|USD-per-shares|shares|pure)/CY(?:20\d{2}|2100)(?:Q[1-4]I?)?\.json",
+        ),
+        ("efts.sec.gov", r"/LATEST/search-index"),
         ("www.sec.gov", r"/files/company_tickers\.json"),
         ("www.sec.gov", r"/Archives/edgar/daily-index/\d{4}/QTR[1-4]/master\.\d{8}\.idx"),
     ],
@@ -80,7 +86,7 @@ def authorize(provider: str, url: str, *, online: bool) -> None:
     policy = POLICIES.get(provider)
     if policy is None or not policy.enabled:
         raise DataError("license_denied", "Source has no approved automated adapter")
-    if not online:
+    if online is not True:
         raise DataError("offline", "Online access requires explicit opt-in")
     try:
         parsed = urlsplit(url)
@@ -102,7 +108,39 @@ def authorize(provider: str, url: str, *, online: bool) -> None:
         raise DataError("url_denied", "Host or path is outside reviewed scope")
 
     query = parse_qs(parsed.query, keep_blank_values=True)
-    if provider == "sec":
+    if provider == "sec" and parsed.hostname == "efts.sec.gov":
+        allowed = (
+            {"q", "dateRange", "startdt", "enddt", "from", "size"}
+            <= set(query)
+            <= {"q", "dateRange", "startdt", "enddt", "from", "size", "forms"}
+            and all(len(v) == 1 for v in query.values())
+            and query["dateRange"] == ["custom"]
+            and 0 < len(query["q"][0].strip()) <= 500
+            and not any(ord(c) < 32 for c in query["q"][0])
+            and query["from"][0].isdigit()
+            and 0 <= int(query["from"][0]) <= 900
+            and query["size"][0].isdigit()
+            and 1 <= int(query["size"][0]) <= 100
+            and int(query["from"][0]) % int(query["size"][0]) == 0
+            and (
+                "forms" not in query
+                or bool(
+                    re.fullmatch(
+                        r"[A-Za-z0-9/-]{1,20}(?:,[A-Za-z0-9/-]{1,20}){0,9}", query["forms"][0]
+                    )
+                )
+            )
+        )
+        if allowed:
+            try:
+                start, end = (
+                    date.fromisoformat(query["startdt"][0]),
+                    date.fromisoformat(query["enddt"][0]),
+                )
+                allowed = date(2001, 1, 1) <= start <= end and (end - start).days <= 3660
+            except ValueError:
+                allowed = False
+    elif provider == "sec":
         allowed = not parsed.query
     elif provider == "treasury":
         allowed = (

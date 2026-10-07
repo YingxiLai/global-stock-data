@@ -1,0 +1,6 @@
+{
+  "taxonomy": "us-gaap", "tag": "Assets", "ccp": "CY2025Q1I", "uom": "USD", "pts": 1,
+  "data": [
+    {"cik": 1, "entityName": "Synthetic A", "accn": "synthetic-assets", "end": "2025-03-31", "val": 123.456789}
+  ]
+}

@@ -6,6 +6,16 @@
     "autonomy": "research",
     "watchlist": [
       "SYNTH:ACME"
+    ],
+    "requirements": [
+      {
+        "id": "revenue",
+        "description": "Inspect synthetic revenue",
+        "instrument": "SYNTH:ACME",
+        "evidence_metrics": [
+          "revenue"
+        ]
+      }
     ]
   },
   "evidence": [
@@ -14,7 +24,9 @@
       "status": "ok",
       "source_url": "synthetic://fixture/acme",
       "evidence_ref": "synthetic:acme-v1",
-      "observed_at": "2026-01-02T15:00:00Z"
+      "observed_at": "2026-01-02T15:00:00Z",
+      "instrument": "SYNTH:ACME",
+      "metric": "revenue"
     }
   ],
   "claims": [
@@ -23,6 +35,9 @@
       "text": "Synthetic revenue is 100 units.",
       "evidence_ids": [
         "demo-1"
+      ],
+      "requirement_ids": [
+        "revenue"
       ]
     }
   ]

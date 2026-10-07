@@ -312,6 +312,10 @@ class AdapterAndTransport(unittest.TestCase):
                     body = b'{"0":{"ticker":"SYNTH","cik_str":1}}'
                 elif "daily-index" in url:
                     body = (FIXTURES / "sec-index-synthetic.idx").read_bytes()
+                elif "/frames/" in url:
+                    body = (FIXTURES / "frame-duration-synthetic.json").read_bytes()
+                elif "search-index" in url:
+                    body = (FIXTURES / "fts-page0-synthetic.json").read_bytes()
                 elif provider == "treasury":
                     body = (FIXTURES / "treasury-synthetic.xml").read_bytes()
                 else:
@@ -323,6 +327,18 @@ class AdapterAndTransport(unittest.TestCase):
             "sec_filings": {"identifier": "1"},
             "sec_tickers": {},
             "sec_daily_index": {"requested": "2026-01-01"},
+            "sec_frames": {
+                "taxonomy": "us-gaap",
+                "tag": "EarningsPerShareDiluted",
+                "unit": "USD-per-shares",
+                "period": "CY2025Q1",
+                "kind": "duration",
+            },
+            "sec_fulltext_search": {
+                "query": "synthetic",
+                "date_from": "2025-01-01",
+                "date_to": "2025-12-31",
+            },
             "treasury_daily_nominal_par": {"year": 2026},
             "cftc_legacy_futures_only": {},
         }
@@ -330,7 +346,7 @@ class AdapterAndTransport(unittest.TestCase):
             result = fetch(Fake(), capability, arguments)
             self.assertIn(result["data_status"], ("ok", "partial", "no_data"), result)
             self.assertFalse(result["point_in_time_safe"])
-        self.assertEqual(len(capabilities()), 7)
+        self.assertEqual(len(capabilities()), 9)
         self.assertEqual(fetch(Fake(), "sec_company_facts", {})["data_status"], "error")
         with tempfile.TemporaryDirectory() as directory:
             self.assertEqual(
@@ -382,6 +398,15 @@ class McpIntegration(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(result.is_error)
             self.assertAlmostEqual(result.structured_content["portfolio_return"], -0.1)
+            extra = await client.call_tool(
+                "what_if",
+                {
+                    "weights": {"SYNTH:A": 1},
+                    "shocks": {"SYNTH:A": -0.1},
+                    "save_path": "/forbidden/implicit-save",
+                },
+            )
+            self.assertTrue(extra.is_error)
             denied = await client.call_tool("place_order", {})
             self.assertTrue(denied.is_error)
             base = demo()
@@ -412,6 +437,93 @@ class McpIntegration(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(result.is_error)
             self.assertAlmostEqual(result.structured_content["portfolio_return"], -0.1)
+            denied = await client.call_tool(
+                "research_fetch",
+                {"capability": "treasury_daily_nominal_par", "arguments": {"year": 2026}},
+            )
+            self.assertEqual(denied.structured_content["data_status"], "permission_blocked")
+
+    async def test_actual_stdio_synthetic_read_and_dossier_pipeline(self):
+        from mcp import Client as McpClient
+        from mcp.client.stdio import StdioServerParameters
+        from test_extensions import FRAME_ARGS, SEARCH_ARGS
+
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / "trace.json"
+            params = StdioServerParameters(
+                command=sys.executable,
+                args=[str(Path(__file__).parent / "mcp_stdio_fixture.py"), directory, str(trace)],
+                env={"PYTHONPATH": os.environ.get("PYTHONPATH", ""), "OTEL_SDK_DISABLED": "true"},
+            )
+            async with asyncio.timeout(20), McpClient(params) as client:
+                tools = await client.list_tools()
+                data_tool = next(tool for tool in tools.tools if tool.name == "research_fetch")
+                self.assertTrue(data_tool.annotations.read_only_hint)
+                self.assertTrue(data_tool.annotations.open_world_hint)
+                result = await client.call_tool(
+                    "research_fetch",
+                    {"capability": "sec_frames", "arguments": FRAME_ARGS, "limit": 2},
+                )
+                self.assertFalse(result.is_error)
+                data = result.structured_content
+                self.assertEqual(data["data_status"], "partial")
+                self.assertEqual(data["records"][0]["unit"], "USD/shares")
+                search = await client.call_tool(
+                    "research_fetch",
+                    {"capability": "sec_fulltext_search", "arguments": SEARCH_ARGS},
+                )
+                self.assertEqual(search.structured_content["coverage"], "end_of_query_reached")
+                self.assertFalse(
+                    search.structured_content["source_metadata"]["earliest_mention_established"]
+                )
+                row = data["records"][0]
+                report = await client.call_tool(
+                    "research_dossier",
+                    {
+                        "request": demo()["request"],
+                        "evidence": [
+                            {
+                                "id": "frame-1",
+                                "status": "partial",
+                                "source_url": row["source_url"],
+                                "evidence_ref": row["evidence_ref"],
+                                "observed_at": row["observed_at"],
+                            }
+                        ],
+                        "claims": [
+                            {
+                                "kind": "fact",
+                                "text": "Synthetic EPS is 1.234567 USD/shares.",
+                                "evidence_ids": ["frame-1"],
+                            }
+                        ],
+                        "now": row["fetched_at"],
+                    },
+                )
+                self.assertEqual(report.structured_content["readiness"], "insufficient_evidence")
+                self.assertEqual(report.structured_content["evidence"][0]["freshness"], "unknown")
+                self.assertFalse(report.structured_content["claims"][0]["supported"])
+                denied = await client.call_tool(
+                    "research_fetch",
+                    {
+                        "capability": "current_quote",
+                        "arguments": {"online": True, "url": "https://evil.invalid"},
+                    },
+                )
+                self.assertEqual(denied.structured_content["data_status"], "permission_blocked")
+                extra = await client.call_tool(
+                    "research_fetch",
+                    {
+                        "capability": "sec_frames",
+                        "arguments": FRAME_ARGS,
+                        "online": True,
+                        "state_dir": "/forbidden/path",
+                    },
+                )
+                self.assertTrue(extra.is_error)
+            calls = json.loads(trace.read_text())
+            self.assertEqual(len(calls), 3)
+            self.assertTrue(all(call["sec_agent_present"] for call in calls))
 
 
 class SchemaAndSafety(unittest.TestCase):

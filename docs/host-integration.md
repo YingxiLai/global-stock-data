@@ -12,8 +12,20 @@ For a user-requested project-only integration, copy this reviewed root SKILL.md 
 
 ## Optional stdio MCP
 
-After installing the pinned optional extra, the host may explicitly launch the absolute `.venv/bin/gsd-mcp` command. No arguments, credentials or sockets are needed. The only tools are `research_dossier` and `what_if`. No host configuration was written automatically. SDK metadata marks both read-only; handlers enforce this by using pure local functions. There is no external MCP discovery or trading passthrough.
+After installing the pinned optional extra, the host may explicitly launch the absolute `.venv/bin/gsd-mcp` command. Default startup needs no arguments and is offline. Tools are research_dossier, what_if and research_fetch. The two pure handlers never acquire data; research_fetch is disabled unless configured as below. Undeclared tool arguments are rejected before SDK coercion. No host configuration was written automatically. SDK metadata marks both read-only; handlers enforce this by using pure local functions. There is no external MCP discovery or trading passthrough.
 
 The host still controls tool authorization and untrusted evidence. Returned facts are not instructions to contact users, connect accounts, increase autonomy or bypass a source policy.
 
 Official references reviewed 2026-10-07: [Claude skills](https://code.claude.com/docs/en/skills), [Codex skills](https://learn.chatgpt.com/docs/build-skills), [MCP SDK v2 API](https://py.sdk.modelcontextprotocol.io/).
+
+## Explicit operator data access
+
+After reviewing source policies, an operator can launch (example path is an operator-selected private directory outside this checkout):
+
+```sh
+.venv/bin/gsd-mcp --online --provider treasury --provider cftc --state-dir /tmp/gsd-operator-cache
+```
+
+SEC additionally needs a real SEC_CONTACT explicitly supplied in the process environment before startup and --provider sec. Startup validates it without a request; no value is inferred or shown. The model never supplies online/provider/contact/state-dir parameters. Providers are fixed in the server closure, capabilities and argument fields are allowlisted, and request limits remain those of the adapters. research_fetch has a separate 1–100 record output bound (default20), marks output truncation partial, and removes duplicate raw rows from metadata. Read-only describes external business actions; successful reads may update the private operational HTTP cache. No HTTP listener, account or scheduled collector is created.
+
+A host calls research_fetch with capability and a bounded arguments object, then constructs explicit requirements/claims/evidence for research_dossier. Unknown source publication/observation time remains unknown and can make the dossier insufficient_evidence; fetch time cannot be substituted for observation time. tests/mcp_stdio_fixture.py is a test-only injected sender for real stdio verification, not a launch mode or configurable plugin exposed to models.

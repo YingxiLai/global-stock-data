@@ -10,6 +10,7 @@ from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from .errors import require
+from .indicators import validate_ohlc
 from .records import number
 
 
@@ -53,6 +54,7 @@ def yahoo_bars(raw: dict[str, Any], *, now: str) -> dict[str, Any]:
                 "finished_bar": None,
             }
         )
+        validate_ohlc(output[-1])
     return {
         "bars": output,
         "exchange_timezone": tz,
@@ -77,13 +79,12 @@ def scaled_quote(
     unit: str | None,
 ) -> dict[str, Any]:
     require(
-        decimal_places is not None
-        and isinstance(decimal_places, int)
-        and 0 <= decimal_places <= 12,
+        decimal_places is not None and type(decimal_places) is int and 0 <= decimal_places <= 12,
         "Explicit source decimal metadata required",
     )
+    factor = number(scale)
     require(
-        currency is not None and scale is not None and scale > 0 and unit is not None,
+        currency is not None and factor is not None and factor > 0 and unit is not None,
         "Explicit currency, unit and scale required",
     )
     parsed = number(value)
@@ -91,7 +92,7 @@ def scaled_quote(
         "provider": provider,
         "value": None
         if parsed is None
-        else parsed / 10 ** cast(int, decimal_places) * cast(float, scale),
+        else number(parsed / 10 ** cast(int, decimal_places) * cast(float, factor)),
         "currency": currency,
         "unit": unit,
         "scale": "1",

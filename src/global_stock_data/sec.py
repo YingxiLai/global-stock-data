@@ -7,6 +7,7 @@ from typing import Any, cast
 from .errors import DataError, require
 from .http import Client, Payload
 from .records import number
+from .sec_queries import frames, fulltext_search
 
 
 def cik(value: str) -> str:
@@ -23,6 +24,7 @@ def company_facts(
     backtests. Duration labels are conservative heuristics, not fiscal calendars.
     IFRS/foreign filings are explicitly unsupported by this normalizer.
     """
+    require(isinstance(raw, dict), "Company facts must be an object")
     if as_of:
         date.fromisoformat(as_of)
     facts = raw.get("facts", {})
@@ -113,6 +115,8 @@ def require_backtest_safe(_: Any) -> None:
 
 
 def submissions(raw: dict[str, Any], *, historical: bool = False) -> dict[str, Any]:
+    require(isinstance(raw, dict), "Submissions must be an object")
+    require(historical or isinstance(raw.get("filings"), dict), "Missing filings object")
     columns = raw if historical else raw.get("filings", {}).get("recent")
     require(isinstance(columns, dict), "Missing submissions columns")
     required = ("accessionNumber", "filingDate", "form")
@@ -148,6 +152,31 @@ class Sec:
             "sec", "https://www.sec.gov/files/company_tickers.json", ttl=86400, max_age=86400
         )
 
+    def frames(
+        self, *, taxonomy: str, tag: str, unit: str, period: str, kind: str
+    ) -> dict[str, Any]:
+        return frames(self.client, taxonomy=taxonomy, tag=tag, unit=unit, period=period, kind=kind)
+
+    def fulltext_search(
+        self,
+        *,
+        query: str,
+        date_from: str,
+        date_to: str,
+        page_size: int = 100,
+        max_pages: int = 1,
+        forms: str | None = None,
+    ) -> dict[str, Any]:
+        return fulltext_search(
+            self.client,
+            query=query,
+            date_from=date_from,
+            date_to=date_to,
+            page_size=page_size,
+            max_pages=max_pages,
+            forms=forms,
+        )
+
     def filings(self, identifier: str, *, max_history_files: int = 0) -> dict[str, Any]:
         require(0 <= max_history_files <= 10, "History retrieval is bounded to 10 files", "input")
         root = self.client.get("sec", f"https://data.sec.gov/submissions/CIK{cik(identifier)}.json")
@@ -164,6 +193,10 @@ class Sec:
         ]
         refs = [root.evidence_ref]
         files = parsed["historical_files"]
+        require(
+            isinstance(files, list) and all(isinstance(f, dict) for f in files),
+            "Invalid history files",
+        )
         for item in files[:max_history_files]:
             name = item.get("name", "")
             require(

@@ -14,6 +14,8 @@ CAPABILITIES = {
     "sec_filings": "sec",
     "sec_tickers": "sec",
     "sec_daily_index": "sec",
+    "sec_frames": "sec",
+    "sec_fulltext_search": "sec",
     "treasury_daily_nominal_par": "treasury",
     "cftc_legacy_futures_only": "cftc",
     "current_quote": None,
@@ -53,6 +55,7 @@ def fetch(client: Client, capability: str, arguments: dict[str, Any]) -> dict[st
             ],
         }
     try:
+        require(isinstance(arguments, dict), "Capability arguments must be an object", "input")
         sec = Sec(client)
         result: dict[str, Any]
         url = ""
@@ -103,6 +106,24 @@ def fetch(client: Client, capability: str, arguments: dict[str, Any]) -> dict[st
             )
             result = sec.daily_index(**arguments)
             url = result["source_url"]
+        elif capability == "sec_frames":
+            require(
+                set(arguments) == {"taxonomy", "tag", "unit", "period", "kind"},
+                "Frame requires explicit taxonomy/tag/unit/period/kind",
+                "input",
+            )
+            result = sec.frames(**arguments)
+            url = result["source_url"]
+        elif capability == "sec_fulltext_search":
+            require(
+                {"query", "date_from", "date_to"}
+                <= set(arguments)
+                <= {"query", "date_from", "date_to", "page_size", "max_pages", "forms"},
+                "Search needs explicit query/date range and bounded arguments",
+                "input",
+            )
+            result = sec.fulltext_search(**arguments)
+            url = result["source_url"]
         elif capability == "treasury_daily_nominal_par":
             require(set(arguments) == {"year"}, "Treasury requires one year", "input")
             result = treasury(client, arguments["year"])
@@ -112,6 +133,11 @@ def fetch(client: Client, capability: str, arguments: dict[str, Any]) -> dict[st
             result = cot(client, **arguments)
             url = "https://publicreporting.cftc.gov/resource/6dca-aqww.json"
         records = []
+        require(
+            isinstance(result["rows"], list)
+            and all(isinstance(row, dict) for row in result["rows"]),
+            "Provider rows must be objects",
+        )
         for row in result["rows"]:
             evidence_ref = (
                 row.get("_evidence_ref") or result.get("evidence_ref") or result["evidence_refs"][0]
@@ -131,7 +157,15 @@ def fetch(client: Client, capability: str, arguments: dict[str, Any]) -> dict[st
                     None,
                     row.get(
                         "actual_data_date",
-                        row.get("end", row.get("report_date", result.get("actual_data_date"))),
+                        row.get(
+                            "end",
+                            row.get(
+                                "report_date",
+                                row.get("_source", {}).get(
+                                    "file_date", result.get("actual_data_date")
+                                ),
+                            ),
+                        ),
                     ),
                     result.get("fallback_reason"),
                     evidence_ref,
@@ -160,6 +194,8 @@ def fetch(client: Client, capability: str, arguments: dict[str, Any]) -> dict[st
             if exc.code in ("forbidden", "unauthorized", "license_denied", "offline")
             else "stale"
             if exc.code == "stale"
+            else "conflict"
+            if exc.code == "conflict"
             else "error"
         )
         return {

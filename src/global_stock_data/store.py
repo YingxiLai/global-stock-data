@@ -35,7 +35,9 @@ class MemoryStore:
         conditions: list[str] | None = None,
     ) -> dict[str, Any]:
         require(
-            user_requested, "Watchlist mutation requires explicit user request", "approval_required"
+            user_requested is True,
+            "Watchlist mutation requires explicit user request",
+            "approval_required",
         )
         instant(now)
         require(
@@ -48,7 +50,7 @@ class MemoryStore:
             "reason": reason,
             "added_at": now,
             "source_request_ref": source_request_ref,
-            "review_conditions": conditions or [],
+            "review_conditions": copy.deepcopy(conditions or []),
             "state": "watching",
             "monitoring_state": "off",
             "persistence": "ephemeral",
@@ -58,7 +60,7 @@ class MemoryStore:
         return copy.deepcopy(item)
 
     def archive_watch(self, identifier: str, *, user_requested: bool) -> None:
-        require(user_requested, "Explicit archive request required", "approval_required")
+        require(user_requested is True, "Explicit archive request required", "approval_required")
         require(identifier in self.state["watchlist"], "Unknown watch ID", "input")
         self.state["watchlist"][identifier]["state"] = "archived"
 
@@ -77,6 +79,7 @@ class MemoryStore:
         unresolved: list[str] | None = None,
     ) -> dict[str, Any]:
         instant(now)
+        require(type(confirmed) is bool, "Human confirmation must be boolean", "approval_required")
         require(
             bool(identifier and dossier_ref and user_statement) and dossier_version >= 1,
             "Decision identity and statement required",
@@ -120,7 +123,7 @@ class MemoryStore:
             "decision": decision,
             "user_statement": user_statement,
             "confirmation_ref": confirmation_ref,
-            "unresolved_at_decision": unresolved or [],
+            "unresolved_at_decision": copy.deepcopy(unresolved or []),
             "supersedes": supersedes,
             "execution_status": "user_reported"
             if confirmed and decision == "user_reported_action"
@@ -130,7 +133,7 @@ class MemoryStore:
         return copy.deepcopy(item)
 
     def context(self, key: str, field: dict[str, Any], *, user_requested: bool) -> None:
-        require(user_requested, "Explicit context update required", "approval_required")
+        require(user_requested is True, "Explicit context update required", "approval_required")
         require(
             field.get("status") in ("provided", "unknown", "declined", "hypothetical"),
             "Invalid context status",
@@ -150,7 +153,9 @@ class FileStore(MemoryStore):
     def __init__(
         self, directory: Path, *, repository_root: Path, user_enabled: bool = False
     ) -> None:
-        require(user_enabled, "Private persistence is not enabled", "persistence_not_enabled")
+        require(
+            user_enabled is True, "Private persistence is not enabled", "persistence_not_enabled"
+        )
         resolved = directory.resolve()
         require(
             not resolved.is_relative_to(repository_root.resolve()),
@@ -171,7 +176,7 @@ class FileStore(MemoryStore):
             self.state = raw
 
     def save(self, *, user_requested: bool) -> dict[str, str]:
-        require(user_requested, "Explicit save request required", "approval_required")
+        require(user_requested is True, "Explicit save request required", "approval_required")
         state = self.snapshot()
         for item in state["watchlist"].values():
             item["persistence"] = "private_local"

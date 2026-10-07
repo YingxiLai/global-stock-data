@@ -305,18 +305,20 @@ class FinancialTests(Base):
                 "signed_quantity": 2,
                 "delta": 0.5,
                 "multiplier": 10,
-                "deliverable": "synthetic shares",
+                "underlying": "SYNTH:A",
+                "deliverable": {"kind": "equity", "underlying": "SYNTH:A", "unit": "shares"},
                 "delta_basis": "per_deliverable_unit",
             },
             {
                 "signed_quantity": -1,
                 "delta": 0.5,
                 "multiplier": 10,
-                "deliverable": "synthetic shares",
+                "underlying": "SYNTH:A",
+                "deliverable": {"kind": "equity", "underlying": "SYNTH:A", "unit": "shares"},
                 "delta_basis": "per_deliverable_unit",
             },
         ]
-        self.assertEqual(signed_delta_exposure(positions), 5)
+        self.assertEqual(signed_delta_exposure(positions)["groups"][0]["signed_delta"], 5)
         result = zero_dte(
             [{"expiry": "2026-01-01"}],
             snapshot_at="2026-01-02T00:00:00Z",

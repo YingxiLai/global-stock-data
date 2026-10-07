@@ -12,7 +12,7 @@ The minimum loop is intent → request → approved source capability → eviden
 
 | Layer | Implementation | Boundary |
 |---|---|---|
-| Data | policy.py, http.py, sec.py, macro.py, local.py, adapters.py | Approved capability only; raw dates, units and scope retained; no unlicensed collectors |
+| Data | policy.py, http.py, sec.py, sec_queries.py, macro.py, local.py, adapters.py | Approved capability only; raw dates, units and scope retained; no unlicensed collectors |
 | Research | records.py, research.py, render.py | Deterministic quality/readiness; facts/calculations have evidence; assumptions are explicit |
 | User context and risk | request context fields, what_if, MemoryStore | Use only volunteered context; declined remains declined; synthetic long-only stress is not advice |
 | Human records | MemoryStore, FileStore, review | Explicit mutation/save; append decisions and review versions; execution remains human |
@@ -76,3 +76,5 @@ Optional official MCP SDK 2.3.0 supports two pure read-only tools over stdio. No
 [A01–A12](docs/acceptance.md) map to deterministic offline tests and interaction fixtures: zero-question lookup, progressive decision support, declined context, policy refusal, stale/empty distinction, comparable units/periods, conflict suppression, option/short-sale semantics, synthetic scenarios, watch without monitoring, human decision versions, manual review/privacy/execution boundary.
 
 This iteration does not claim live schema validation, real-time quotes, a historical universe, full XBRL fiscal harmonization, a securities account, a deployed assistant, calibrated investment predictions or automatic notifications. These remain explicit extensions requiring their own source policy, implementation and tests.
+
+Completion is explicitly bound to original requirements, claim coverage and same-instrument metric evidence. No requirement assessment means no whole-question answerable. Evaluation identities include actual freshness rules, and nested records are isolated snapshots. The optional MCP research_fetch makes reviewed adapters available under operator startup scope; tool parameters never grant access. New SEC calendar samples/search results remain partial or bounded evidence, not historical universes, first-mention proofs or broker data.

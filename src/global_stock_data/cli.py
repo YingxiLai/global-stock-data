@@ -11,6 +11,7 @@ from . import __version__
 from .adapters import CAPABILITIES, capabilities, fetch
 from .errors import DataError, require
 from .http import Client
+from .options import chain_summary, filter_expiry
 from .policy import source_manifest
 from .render import markdown, short_answer
 from .research import dossier, validate_request, what_if
@@ -24,6 +25,14 @@ def demo() -> dict[str, Any]:
         "question": "What does synthetic ACME evidence support?",
         "autonomy": "research",
         "watchlist": ["SYNTH:ACME"],
+        "requirements": [
+            {
+                "id": "revenue",
+                "description": "Inspect synthetic revenue",
+                "instrument": "SYNTH:ACME",
+                "evidence_metrics": ["revenue"],
+            }
+        ],
     }
     evidence = [
         {
@@ -32,10 +41,17 @@ def demo() -> dict[str, Any]:
             "source_url": "synthetic://fixture/acme",
             "evidence_ref": "synthetic:acme-v1",
             "observed_at": "2026-01-02T15:00:00+00:00",
+            "instrument": "SYNTH:ACME",
+            "metric": "revenue",
         }
     ]
     claims = [
-        {"kind": "fact", "text": "Synthetic revenue is 100 units.", "evidence_ids": ["demo-1"]},
+        {
+            "kind": "fact",
+            "text": "Synthetic revenue is 100 units.",
+            "evidence_ids": ["demo-1"],
+            "requirement_ids": ["revenue"],
+        },
         {
             "kind": "scenario",
             "text": "A 10% price shock with 20% weight changes portfolio value by 2%.",
@@ -73,6 +89,12 @@ def main(argv: list[str] | None = None) -> int:
     workflow.add_argument("file", type=Path)
     workflow.add_argument("--format", choices=("json", "markdown", "short"), default="json")
     workflow.add_argument("--now", required=True, help="Explicit ISO timestamp including offset")
+    option_parser = sub.add_parser("options")
+    option_parser.add_argument("file", type=Path)
+    option_parser.add_argument("--snapshot-at", required=True)
+    option_parser.add_argument("--expiry")
+    option_parser.add_argument("--dte-min", type=int)
+    option_parser.add_argument("--dte-max", type=int)
     for name in ("sec-facts", "sec-filings", "sec-tickers", "sec-index"):
         command = sub.add_parser(name)
         command.add_argument("--online", action="store_true")
@@ -110,6 +132,22 @@ def main(argv: list[str] | None = None) -> int:
             require(isinstance(arguments, dict), "Capability arguments must be an object", "input")
             require(args.online, "Online access requires explicit --online", "offline")
             result = fetch(Client(args.state_dir, online=True), args.capability, arguments)
+        elif args.command == "options":
+            require(args.file.stat().st_size <= 1_000_000, "Option input too large", "input")
+            contracts = json.loads(args.file.read_text())
+            require(
+                isinstance(contracts, list) and all(isinstance(row, dict) for row in contracts),
+                "Local option input must be contract objects",
+                "input",
+            )
+            result = filter_expiry(
+                contracts,
+                snapshot_at=args.snapshot_at,
+                expiry=args.expiry,
+                dte_min=args.dte_min,
+                dte_max=args.dte_max,
+            )
+            result["summary"] = chain_summary(result["contracts"])
         elif args.command == "research":
             require(args.file.stat().st_size <= 1_000_000, "Research input too large", "input")
             content = json.loads(args.file.read_text())

@@ -71,6 +71,16 @@
             "type": "string"
           },
           "uniqueItems": true
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResearchRequirement"
+          }
+        },
+        "instrument": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": true
@@ -142,6 +152,12 @@
             "stale",
             "future"
           ]
+        },
+        "instrument": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "additionalProperties": true
@@ -184,6 +200,14 @@
         "inputs": {},
         "method_version": {
           "type": "string"
+        },
+        "requirement_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       },
       "additionalProperties": true
@@ -444,6 +468,39 @@
         }
       },
       "additionalProperties": true
+    },
+    "ResearchRequirement": {
+      "type": "object",
+      "required": [
+        "id",
+        "description",
+        "instrument",
+        "evidence_metrics"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrument": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_metrics": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
