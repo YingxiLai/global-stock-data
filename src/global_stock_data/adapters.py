@@ -138,37 +138,73 @@ def fetch(client: Client, capability: str, arguments: dict[str, Any]) -> dict[st
             and all(isinstance(row, dict) for row in result["rows"]),
             "Provider rows must be objects",
         )
-        for row in result["rows"]:
-            evidence_ref = (
-                row.get("_evidence_ref") or result.get("evidence_ref") or result["evidence_refs"][0]
+        provenance = result.get("row_provenance")
+        require(
+            provenance is None
+            or (isinstance(provenance, list) and len(provenance) == len(result["rows"])),
+            "Acquisition metadata must align with provider rows",
+        )
+        for index, row in enumerate(result["rows"]):
+            acquisition = (
+                provenance[index]
+                if provenance is not None
+                else {
+                    "source_url": url,
+                    "fetched_at": result["fetched_at"],
+                    "evidence_ref": result.get("evidence_ref") or result["evidence_refs"][0],
+                }
+            )
+            require(
+                isinstance(acquisition, dict)
+                and all(
+                    isinstance(acquisition.get(key), str) and acquisition[key]
+                    for key in ("source_url", "fetched_at", "evidence_ref")
+                ),
+                "Trusted acquisition metadata required",
+            )
+            # Only fields defined for this capability supply normalized semantics.
+            # Unknown raw fields (including _source on non-FTS rows) stay data only.
+            day_field = {
+                "sec_company_facts": "end",
+                "sec_frames": "end",
+                "sec_filings": "filingDate",
+                "cftc_legacy_futures_only": "report_date",
+                "treasury_daily_nominal_par": "actual_data_date",
+            }.get(capability)
+            actual_date = (
+                row["_source"].get("file_date")
+                if capability == "sec_fulltext_search"
+                else row.get(day_field)
+                if day_field
+                else result.get("actual_data_date")
+            )
+            unit = (
+                row.get("unit")
+                if capability
+                in (
+                    "sec_company_facts",
+                    "sec_frames",
+                    "cftc_legacy_futures_only",
+                    "treasury_daily_nominal_par",
+                )
+                else None
             )
             records.append(
                 Record(
                     provider,
-                    row.get("_source_url", url),
+                    acquisition["source_url"],
                     None,
                     None,
                     None,
-                    row.get("_fetched_at", result["fetched_at"]),
+                    acquisition["fetched_at"],
                     None,
-                    row.get("unit"),
-                    "USD" if row.get("unit") in ("USD", "USD/shares") else None,
-                    "1" if row.get("unit") else None,
+                    unit,
+                    "USD" if unit in ("USD", "USD/shares") else None,
+                    "1" if unit else None,
                     None,
-                    row.get(
-                        "actual_data_date",
-                        row.get(
-                            "end",
-                            row.get(
-                                "report_date",
-                                row.get("_source", {}).get(
-                                    "file_date", result.get("actual_data_date")
-                                ),
-                            ),
-                        ),
-                    ),
+                    actual_date,
                     result.get("fallback_reason"),
-                    evidence_ref,
+                    acquisition["evidence_ref"],
                     row,
                 ).as_dict()
             )
@@ -181,7 +217,7 @@ def fetch(client: Client, capability: str, arguments: dict[str, Any]) -> dict[st
         return {
             "schema_version": "1.0",
             "capability": capability,
-            "data_status": "no_data" if not records else "partial" if partial else "ok",
+            "data_status": "partial" if partial else "no_data" if not records else "ok",
             "records": records,
             "coverage": result["completeness"],
             "source_metadata": result,

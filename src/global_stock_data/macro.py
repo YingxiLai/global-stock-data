@@ -102,9 +102,15 @@ def cot_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def cot(client: Client, *, page_size: int = 100, max_pages: int = 1) -> dict[str, Any]:
     require(
-        1 <= page_size <= 1000 and 1 <= max_pages <= 10, "Invalid bounded COT page request", "input"
+        type(page_size) is int
+        and 1 <= page_size <= 1000
+        and type(max_pages) is int
+        and 1 <= max_pages <= 10,
+        "Invalid bounded COT page request",
+        "input",
     )
     rows: list[dict[str, Any]] = []
+    provenance: list[dict[str, str]] = []
     refs: list[str] = []
     complete = False
     for page in range(max_pages):
@@ -121,22 +127,28 @@ def cot(client: Client, *, page_size: int = 100, max_pages: int = 1) -> dict[str
             isinstance(batch, list) and all(isinstance(row, dict) for row in batch),
             "COT result must contain row objects",
         )
-        rows.extend(
+        rows.extend(cot_rows(batch))
+        provenance.extend(
             {
-                **row,
-                "_evidence_ref": payload.evidence_ref,
-                "_source_url": url,
-                "_fetched_at": payload.fetched_at,
+                "evidence_ref": payload.evidence_ref,
+                "source_url": url,
+                "fetched_at": payload.fetched_at,
             }
-            for row in batch
+            for _ in batch
         )
         refs.append(payload.evidence_ref)
         if len(batch) < page_size:
             complete = True
             break
+    ordered = sorted(
+        zip(rows, provenance, strict=True),
+        key=lambda item: (item[0]["report_date"], item[0]["cftc_contract_market_code"]),
+        reverse=True,
+    )
     return {
         "fetched_at": payload.fetched_at,
-        "rows": cot_rows(rows),
+        "rows": [item[0] for item in ordered],
+        "row_provenance": [item[1] for item in ordered],
         "evidence_refs": refs,
         "completeness": "end_of_query_reached" if complete else "bounded_partial",
         "snapshot_consistency": "not_guaranteed_across_pages",

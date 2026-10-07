@@ -1,5 +1,6 @@
 """Bounded SEC calendar frames and full-text search, never a PIT universe."""
 
+import copy
 import re
 from datetime import date
 from typing import Any, cast
@@ -52,6 +53,7 @@ def frame_rows(
     raw: dict[str, Any], *, taxonomy: str, tag: str, unit: str, period: str, kind: str
 ) -> list[dict[str, Any]]:
     frame_arguments(taxonomy, tag, unit, period, kind)
+    require(isinstance(raw, dict), "Frame response must be an object")
     normalized_unit = unit.replace("-per-", "/")
     require(
         raw.get("taxonomy") == taxonomy
@@ -89,7 +91,9 @@ def frame_rows(
             _day(row["filed"])
         output.append(
             {
-                **row,
+                "raw": copy.deepcopy(row),
+                **{key: row[key] for key in ("cik", "accn", "end", "val")},
+                **{key: row[key] for key in ("entityName", "filed", "form") if key in row},
                 "taxonomy": taxonomy,
                 "tag": tag,
                 "unit": normalized_unit,
@@ -135,6 +139,11 @@ def frame_selection(
     allow_calendar_approximation: bool = False,
 ) -> dict[str, Any]:
     """Screen/rank one frame; heterogeneous actual periods need explicit acceptance."""
+    require(
+        type(allow_calendar_approximation) is bool and type(ascending) is bool,
+        "Frame comparison flags must be boolean",
+        "input",
+    )
     require(
         all(
             isinstance(row, dict)
@@ -244,6 +253,7 @@ def fulltext_search(
     args = search_arguments(query, date_from, date_to, page_size, max_pages, forms)
     rows: dict[str, dict[str, Any]] = {}
     refs, totals = [], []
+    provenance: dict[str, dict[str, str]] = {}
     complete = False
     duplicates = 0
     pages = 0
@@ -284,22 +294,17 @@ def fulltext_search(
             )
             if identifier in rows:
                 require(
-                    {
-                        k: v
-                        for k, v in rows[identifier].items()
-                        if not k.startswith("_evidence") and k not in ("_source_url", "_fetched_at")
-                    }
-                    == hit,
+                    rows[identifier] == hit,
                     "Search hit changed between pages",
                     "conflict",
                 )
                 duplicates += 1
             else:
-                rows[identifier] = {
-                    **hit,
-                    "_evidence_ref": payload.evidence_ref,
-                    "_source_url": url,
-                    "_fetched_at": payload.fetched_at,
+                rows[identifier] = copy.deepcopy(hit)
+                provenance[identifier] = {
+                    "evidence_ref": payload.evidence_ref,
+                    "source_url": url,
+                    "fetched_at": payload.fetched_at,
                 }
         # Exact totals and no duplicates are required; an empty/short page alone
         # does not establish completeness against a lower-bound total.
@@ -312,6 +317,7 @@ def fulltext_search(
     complete = complete and stable_totals
     return {
         "rows": list(rows.values()),
+        "row_provenance": list(provenance.values()),
         "fetched_at": payload.fetched_at,
         "evidence_refs": refs,
         "source_url": url,

@@ -339,7 +339,9 @@
         "state",
         "decision",
         "user_statement",
-        "execution_status"
+        "execution_status",
+        "user_approved",
+        "confirmation_ref"
       ],
       "properties": {
         "schema_version": {
@@ -391,9 +393,94 @@
             "string",
             "null"
           ]
+        },
+        "user_approved": {
+          "type": "boolean"
+        },
+        "confirmation_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "\\S"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "confirmed"
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "actor": {
+                "const": "user"
+              },
+              "user_approved": {
+                "const": true
+              },
+              "confirmation_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "pattern": "\\S"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "actor": {
+                "const": "proposal"
+              },
+              "user_approved": {
+                "const": false
+              },
+              "confirmation_ref": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "confirmed"
+              },
+              "decision": {
+                "const": "user_reported_action"
+              }
+            },
+            "required": [
+              "state",
+              "decision"
+            ]
+          },
+          "then": {
+            "properties": {
+              "execution_status": {
+                "const": "user_reported"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "execution_status": {
+                "const": "not_applicable"
+              }
+            }
+          }
+        }
+      ]
     },
     "Record": {
       "type": "object",

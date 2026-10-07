@@ -11,6 +11,50 @@ from .errors import DataError, require
 from .records import instant
 
 
+def validate_decision_record(item: Any) -> None:
+    """Validate approval semantics at creation, snapshots and private disk boundaries."""
+    require(isinstance(item, dict), "Invalid decision record", "approval_required")
+    approved = item.get("user_approved")
+    require(type(approved) is bool, "Human approval must be boolean", "approval_required")
+    require(
+        (item.get("state"), item.get("actor"))
+        == (("confirmed", "user") if approved else ("proposed", "proposal")),
+        "Decision state and actor must match approval",
+        "approval_required",
+    )
+    reference = item.get("confirmation_ref")
+    require(
+        (isinstance(reference, str) and bool(reference.strip()) and len(reference) <= 1000)
+        if approved
+        else reference is None,
+        "Confirmed decisions require an explicit human reference",
+        "approval_required",
+    )
+    require(
+        item.get("execution_status")
+        == (
+            "user_reported"
+            if approved and item.get("decision") == "user_reported_action"
+            else "not_applicable"
+        ),
+        "Execution reporting must match the confirmed human decision",
+        "approval_required",
+    )
+
+
+def validate_state(state: Any) -> None:
+    require(
+        isinstance(state, dict)
+        and state.get("schema_version") == "1.0"
+        and isinstance(state.get("watchlist"), dict)
+        and isinstance(state.get("decisions"), list)
+        and isinstance(state.get("context"), dict),
+        "Invalid stored state",
+    )
+    for item in state["decisions"]:
+        validate_decision_record(item)
+
+
 class MemoryStore:
     def __init__(self) -> None:
         self.state: dict[str, Any] = {
@@ -21,6 +65,7 @@ class MemoryStore:
         }
 
     def snapshot(self) -> dict[str, Any]:
+        validate_state(self.state)
         return copy.deepcopy(self.state)
 
     def watch(
@@ -97,11 +142,6 @@ class MemoryStore:
             "Unsupported human decision",
         )
         require(
-            not confirmed or bool(confirmation_ref),
-            "Human confirmation evidence required",
-            "approval_required",
-        )
-        require(
             all(d["decision_id"] != identifier for d in self.state["decisions"]),
             "Decision ID already exists",
             "conflict",
@@ -123,12 +163,14 @@ class MemoryStore:
             "decision": decision,
             "user_statement": user_statement,
             "confirmation_ref": confirmation_ref,
+            "user_approved": confirmed,
             "unresolved_at_decision": copy.deepcopy(unresolved or []),
             "supersedes": supersedes,
             "execution_status": "user_reported"
             if confirmed and decision == "user_reported_action"
             else "not_applicable",
         }
+        validate_decision_record(item)
         self.state["decisions"].append(item)
         return copy.deepcopy(item)
 
@@ -168,11 +210,7 @@ class FileStore(MemoryStore):
         if self.path.exists():
             require(self.path.stat().st_size <= 1_000_000, "Private state too large")
             raw = json.loads(self.path.read_text())
-            require(
-                raw.get("schema_version") == "1.0"
-                and all(k in raw for k in ("watchlist", "decisions", "context")),
-                "Invalid stored state",
-            )
+            validate_state(raw)
             self.state = raw
 
     def save(self, *, user_requested: bool) -> dict[str, str]:

@@ -551,6 +551,7 @@ class ResearchTests(Base):
             decision="watch",
             rationale="review evidence",
             user_approved=True,
+            confirmation_ref="synthetic:human-confirmation",
             review_on="2026-02-01T00:00:00Z",
         )
         self.assertEqual(record["execution"], "human_only")
@@ -561,6 +562,7 @@ class ResearchTests(Base):
             decision="buy",
             rationale="x",
             user_approved=True,
+            confirmation_ref="synthetic:human-confirmation",
             review_on="2026-02-01T00:00:00Z",
         )
         report["readiness"] = "insufficient_evidence"

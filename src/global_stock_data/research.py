@@ -65,6 +65,7 @@ def validate_request(request: dict[str, Any]) -> None:
     for requirement in requirements:
         require(
             isinstance(requirement, dict)
+            and set(requirement) == {"id", "description", "instrument", "evidence_metrics"}
             and isinstance(requirement.get("id"), str)
             and bool(requirement["id"])
             and requirement["id"] not in identifiers
@@ -76,6 +77,7 @@ def validate_request(request: dict[str, Any]) -> None:
                 isinstance(metric, str) and bool(metric)
                 for metric in requirement["evidence_metrics"]
             )
+            and len(requirement["evidence_metrics"]) == len(set(requirement["evidence_metrics"]))
             and isinstance(requirement.get("instrument"), str)
             and bool(requirement["instrument"]),
             "Each requirement needs unique id, original scope, metrics and instrument",
@@ -314,7 +316,13 @@ def dossier(
 
 
 def decision_record(
-    report: dict[str, Any], *, decision: str, rationale: str, user_approved: bool, review_on: str
+    report: dict[str, Any],
+    *,
+    decision: str,
+    rationale: str,
+    user_approved: bool,
+    review_on: str,
+    confirmation_ref: str | None = None,
 ) -> dict[str, Any]:
     report = copy.deepcopy(report)
     require(
@@ -323,8 +331,15 @@ def decision_record(
         "evidence_blocked",
     )
     require(
-        user_approved and report["request"]["autonomy"] == "draft",
+        user_approved is True and report["request"]["autonomy"] == "draft",
         "Explicit user review and draft autonomy required",
+        "approval_required",
+    )
+    require(
+        isinstance(confirmation_ref, str)
+        and bool(confirmation_ref.strip())
+        and len(confirmation_ref) <= 1000,
+        "Explicit human confirmation reference required",
         "approval_required",
     )
     require(
@@ -339,7 +354,12 @@ def decision_record(
     )
     record = MemoryStore().record_decision(
         identifier=evidence_hash(
-            {"report": report["dossier_id"], "decision": canonical, "rationale": rationale}
+            {
+                "report": report["dossier_id"],
+                "decision": canonical,
+                "rationale": rationale,
+                "confirmation_ref": confirmation_ref,
+            }
         ),
         dossier_ref=report["dossier_id"],
         dossier_version=report["version"],
@@ -347,7 +367,7 @@ def decision_record(
         user_statement=rationale,
         now=report["generated_at"],
         confirmed=True,
-        confirmation_ref="explicit_user_approval",
+        confirmation_ref=confirmation_ref,
         unresolved=report["unresolved_parts"],
     )
     return {
@@ -364,7 +384,8 @@ def decision_record(
 def what_if(
     weights: dict[str, float], shocks: dict[str, float], *, max_weight: float = 1
 ) -> dict[str, Any]:
-    require(0 <= max_weight <= 1, "Invalid concentration bound")
+    max_weight = cast(float, number(max_weight))
+    require(max_weight is not None and 0 <= max_weight <= 1, "Invalid concentration bound")
     require(
         bool(weights)
         and all(

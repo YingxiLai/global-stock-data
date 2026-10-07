@@ -25,6 +25,7 @@ def company_facts(
     IFRS/foreign filings are explicitly unsupported by this normalizer.
     """
     require(isinstance(raw, dict), "Company facts must be an object")
+    require(type(latest_revision) is bool, "Revision selection must be boolean", "input")
     if as_of:
         date.fromisoformat(as_of)
     facts = raw.get("facts", {})
@@ -178,18 +179,21 @@ class Sec:
         )
 
     def filings(self, identifier: str, *, max_history_files: int = 0) -> dict[str, Any]:
-        require(0 <= max_history_files <= 10, "History retrieval is bounded to 10 files", "input")
+        require(
+            type(max_history_files) is int and 0 <= max_history_files <= 10,
+            "History retrieval is bounded to 10 files",
+            "input",
+        )
         root = self.client.get("sec", f"https://data.sec.gov/submissions/CIK{cik(identifier)}.json")
         parsed = submissions(root.json())
         root_url = f"https://data.sec.gov/submissions/CIK{cik(identifier)}.json"
-        parsed["rows"] = [
+        provenance = [
             {
-                **row,
-                "_evidence_ref": root.evidence_ref,
-                "_source_url": root_url,
-                "_fetched_at": root.fetched_at,
+                "evidence_ref": root.evidence_ref,
+                "source_url": root_url,
+                "fetched_at": root.fetched_at,
             }
-            for row in parsed["rows"]
+            for _ in parsed["rows"]
         ]
         refs = [root.evidence_ref]
         files = parsed["historical_files"]
@@ -204,14 +208,15 @@ class Sec:
                 "Invalid history file path",
             )
             payload = self.client.get("sec", "https://data.sec.gov/submissions/" + name)
-            parsed["rows"].extend(
+            batch = submissions(payload.json(), historical=True)["rows"]
+            parsed["rows"].extend(batch)
+            provenance.extend(
                 {
-                    **row,
-                    "_evidence_ref": payload.evidence_ref,
-                    "_source_url": "https://data.sec.gov/submissions/" + name,
-                    "_fetched_at": payload.fetched_at,
+                    "evidence_ref": payload.evidence_ref,
+                    "source_url": "https://data.sec.gov/submissions/" + name,
+                    "fetched_at": payload.fetched_at,
                 }
-                for row in submissions(payload.json(), historical=True)["rows"]
+                for _ in batch
             )
             refs.append(payload.evidence_ref)
         parsed.update(
@@ -225,20 +230,22 @@ class Sec:
             }
         )
         # Source corrections may change repeated accessions; do not silently overwrite.
-        seen: dict[str, dict[str, Any]] = {}
-        for row in parsed["rows"]:
+        seen: dict[str, tuple[dict[str, Any], dict[str, str]]] = {}
+        for row, acquisition in zip(parsed["rows"], provenance, strict=True):
             accession = row["accessionNumber"]
             require(
-                accession not in seen
-                or {k: v for k, v in seen[accession].items() if not k.startswith("_")}
-                == {k: v for k, v in row.items() if not k.startswith("_")},
+                accession not in seen or seen[accession][0] == row,
                 "Conflicting submissions accession",
                 "conflict",
             )
-            seen[accession] = row
-        parsed["rows"] = sorted(
-            seen.values(), key=lambda r: (r["filingDate"], r["accessionNumber"]), reverse=True
+            seen[accession] = (row, acquisition)
+        ordered = sorted(
+            seen.values(),
+            key=lambda item: (item[0]["filingDate"], item[0]["accessionNumber"]),
+            reverse=True,
         )
+        parsed["rows"] = [item[0] for item in ordered]
+        parsed["row_provenance"] = [item[1] for item in ordered]
         return parsed
 
     def daily_index(

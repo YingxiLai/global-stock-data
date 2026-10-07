@@ -2,6 +2,7 @@
 
 import re
 from datetime import date
+from decimal import Decimal
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
@@ -95,7 +96,7 @@ def chain_summary(contracts: list[dict[str, Any]]) -> dict[str, Any]:
 
     def ratio(put: dict[str, Any], call: dict[str, Any]) -> float | None:
         return (
-            put["value"] / call["value"]
+            number(float(Decimal(put["value"]) / Decimal(call["value"])))
             if put["value"] is not None and call["value"] is not None and call["value"] > 0
             else None
         )
@@ -104,9 +105,15 @@ def chain_summary(contracts: list[dict[str, Any]]) -> dict[str, Any]:
     iv_complete = all(number(row.get("volume")) is not None for row in contracts) and all(
         number(row.get("iv")) is not None for row in iv_rows
     )
-    iv_weight = sum(float(row["volume"]) for row in iv_rows)
+    # Decimal keeps products/sums finite before the final bounded float conversion.
+    iv_weight = sum(Decimal(str(row["volume"])) for row in iv_rows)
     weighted_iv = (
-        sum(float(row["volume"]) * float(row["iv"]) for row in iv_rows) / iv_weight
+        number(
+            float(
+                sum(Decimal(str(row["volume"])) * Decimal(str(row["iv"])) for row in iv_rows)
+                / iv_weight
+            )
+        )
         if iv_complete and iv_weight > 0
         else None
     )

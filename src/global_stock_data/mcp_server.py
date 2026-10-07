@@ -4,12 +4,13 @@ import argparse
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from . import __version__
 from .adapters import CAPABILITIES, fetch
 from .errors import DataError, require
 from .http import Client
+from .records import number
 from .research import dispatch
 
 PURE_TOOLS = ("what_if", "research_dossier")
@@ -17,19 +18,33 @@ TOOL_ALLOWLIST = (*PURE_TOOLS, "research_fetch")
 READ_PROVIDERS = ("sec", "treasury", "cftc")
 
 
+def json_bound(value: Any, maximum: int, message: str) -> None:
+    try:
+        size = len(json.dumps(value, allow_nan=False).encode())
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise DataError("input", "Finite JSON input/output required") from exc
+    require(size <= maximum, message, "input")
+
+
+def read_input(capability: Any, arguments: Any, limit: Any) -> None:
+    require(
+        isinstance(capability, str) and 0 < len(capability) <= 80 and isinstance(arguments, dict),
+        "Read capability and argument object must be bounded",
+        "input",
+    )
+    require(type(limit) is int and 1 <= limit <= 100, "Read output bounded to 100 records", "input")
+    json_bound(
+        {"capability": capability, "arguments": arguments, "limit": limit},
+        10_000,
+        "Read input too large",
+    )
+
+
 def bounded_dispatch(tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
     require(tool in PURE_TOOLS, "Tool is not a pure allowlisted tool", "tool_denied")
-    require(
-        len(json.dumps(arguments, allow_nan=False).encode()) <= 100_000,
-        "Tool input too large",
-        "input",
-    )
+    json_bound(arguments, 100_000, "Tool input too large")
     result = dispatch(tool, arguments)
-    require(
-        len(json.dumps(result, allow_nan=False).encode()) <= 200_000,
-        "Tool output too large",
-        "input",
-    )
+    json_bound(result, 200_000, "Tool output too large")
     return result
 
 
@@ -41,16 +56,10 @@ def bounded_fetch(
     client: Client | None = None,
     allowed_providers: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    require(
-        isinstance(arguments, dict)
-        and len(json.dumps(arguments, allow_nan=False).encode()) <= 10_000,
-        "Read arguments too large",
-        "input",
-    )
-    require(type(limit) is int and 1 <= limit <= 100, "Read output bounded to 100 records", "input")
+    read_input(capability, arguments, limit)
     provider = CAPABILITIES.get(capability)
     if client is None or provider not in allowed_providers:
-        return {
+        denied = {
             "schema_version": "1.0",
             "capability": capability,
             "data_status": "permission_blocked",
@@ -63,6 +72,8 @@ def bounded_fetch(
                 }
             ],
         }
+        json_bound(denied, 200_000, "Read result exceeds safe response bound")
+        return denied
     result = fetch(client, capability, arguments)
     records = result["records"]
     truncated = len(records) > limit
@@ -74,7 +85,7 @@ def bounded_fetch(
         "source_metadata": {
             key: value
             for key, value in result.get("source_metadata", {}).items()
-            if key not in ("rows", "historical_files")
+            if key not in ("rows", "row_provenance", "historical_files")
         },
         "available_in_bounded_fetch": len(records),
         "returned_count": min(limit, len(records)),
@@ -83,11 +94,7 @@ def bounded_fetch(
         if truncated and result["data_status"] == "ok"
         else result["data_status"],
     }
-    require(
-        len(json.dumps(output, allow_nan=False).encode()) <= 200_000,
-        "Read result exceeds safe response bound",
-        "input",
-    )
+    json_bound(output, 200_000, "Read result exceeds safe response bound")
     return output
 
 
@@ -119,8 +126,35 @@ def create_server(
     original_call = server.call_tool
 
     async def strict_call(name: str, arguments: dict[str, Any], context: Any = None) -> Any:
-        if name not in fields or set(arguments) - fields[name]:
+        if name not in fields or not isinstance(arguments, dict) or set(arguments) - fields[name]:
             raise ToolError("Unknown tool or undeclared arguments rejected")
+        try:
+            json_bound(arguments, 100_000, "Tool input too large")
+            if name == "research_fetch":
+                read_input(
+                    arguments.get("capability"),
+                    arguments.get("arguments"),
+                    arguments.get("limit", 20),
+                )
+            elif name == "what_if":
+                for key in ("weights", "shocks"):
+                    values = arguments.get(key)
+                    require(isinstance(values, dict), "Scenario numeric maps required", "input")
+                    for value in cast(dict[str, Any], values).values():
+                        require(number(value) is not None, "Scenario numbers required", "input")
+                require(
+                    number(arguments.get("max_weight", 1)) is not None,
+                    "Concentration number required",
+                    "input",
+                )
+            else:
+                require(
+                    number(arguments.get("max_age_seconds", 86400)) is not None,
+                    "Freshness number required",
+                    "input",
+                )
+        except DataError as exc:
+            raise ToolError(str(exc)) from exc
         return await original_call(name, arguments, context)
 
     # Validate the pinned SDK public call boundary before argument coercion.
